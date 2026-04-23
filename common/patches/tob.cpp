@@ -86,6 +86,16 @@ namespace TOB
 			}
 		}
 
+#define REGISTER_OPCODE(emu_name, eq_value) \
+		do { \
+			if (opcodes != nullptr && opcodes->Mutable()) { \
+				static_cast<RegularOpcodeManager *>(opcodes)->SetOpcode((emu_name), (eq_value)); \
+			} \
+		} while (0)
+		REGISTER_OPCODE(OP_DragonHoard1, 0x5807);
+		REGISTER_OPCODE(OP_DragonHoard2, 0x603D);
+#undef REGISTER_OPCODE
+
 		//ok, now we have what we need to register.
 
 		EQStreamInterface::Signature signature;
@@ -2695,7 +2705,7 @@ namespace TOB
 		eq->entries[26] = 0;  // FamiliarKeyRingSlots
 		eq->entries[27] = 0;  // FamiliarAutoLeave
 		eq->entries[28] = 0;  // HeroForgeKeyRingSlots
-		eq->entries[29] = 0;  // DragonHoardSlots
+		eq->entries[29] = 200;  // DragonHoardSlots
 		eq->entries[30] = 0;  // TeleportKeyRingSlots
 		eq->entries[31] = 0;  // PersonalDepotSlots
 		eq->entries[32] = 0;
@@ -5454,6 +5464,8 @@ namespace TOB
 			return item::ItemPacketType::ItemPacketGuildTribute;
 		case ItemPacketType::ItemPacketCharmUpdate:
 			return item::ItemPacketType::ItemPacketCharmUpdate;
+		case ItemPacketType::ItemPacketDragonHoard:
+			return item::ItemPacketType::ItemPacketDragonHoard;
 		default:
 			return item::ItemPacketType::ItemPacketInvalid;
 		}

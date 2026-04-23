@@ -33,6 +33,7 @@ set(zone_sources
     corpse.cpp
     dialogue_window.cpp
     doors.cpp
+    dragonshoard.cpp
     dynamic_zone.cpp
     effects.cpp
     embparser.cpp
