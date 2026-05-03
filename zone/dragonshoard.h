@@ -1,5 +1,6 @@
 #pragma once
 
+#include "../common/eq_packet_structs.h" // [DH_DEPOSIT_RETRIEVE]
 #include "../common/types.h"
 
 class Client;

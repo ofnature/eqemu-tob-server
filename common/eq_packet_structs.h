@@ -1632,6 +1632,14 @@ struct MoveItem_Struct
 /*0012*/
 };
 
+// Dragon's Hoard packet struct - 4 byte payload
+// [DH_DEPOSIT_RETRIEVE]
+struct DragonHoard_Struct
+{
+/*0000*/ uint32 slot_id; // DH slot being deposited to or retrieved from
+/*0004*/
+};
+
 // New for RoF2 - Size: 12
 struct InventorySlot_Struct
 {
