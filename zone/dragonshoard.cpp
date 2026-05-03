@@ -2,7 +2,7 @@
 #include "client.h"
 #include "../common/global_define.h"
 #include "../common/item_instance.h"
-#include "../common/rulesys.h"
+#include "../common/rulesys.h" // [DH_RULE]
 #include "../common/strings.h"
 #if __has_include("../common/repositories/dragonhoard_items_repository.h")
 #include "../common/repositories/dragonhoard_items_repository.h"
@@ -19,6 +19,10 @@
 void DragonHoard::SendItemList(Client* client)
 {
 	if (!client) {
+		return;
+	}
+
+	if (!RuleB(Features, DragonHoardEnabled)) { // [DH_RULE]
 		return;
 	}
 
@@ -77,6 +81,10 @@ void DragonHoard::HandleDeposit(Client* client, const EQApplicationPacket* app)
 	// [DH_DEPOSIT_RETRIEVE]
 	// OP_DragonHoard2 (0x603D) — client deposits cursor item into Dragon's Hoard
 	if (!client || !app) {
+		return;
+	}
+
+	if (!RuleB(Features, DragonHoardEnabled)) { // [DH_RULE]
 		return;
 	}
 
@@ -151,6 +159,10 @@ void DragonHoard::HandleRetrieve(Client* client, const EQApplicationPacket* app)
 	// [DH_DEPOSIT_RETRIEVE]
 	// OP_DragonHoard1 (0x5807) — client retrieves item from Dragon's Hoard to cursor
 	if (!client || !app) {
+		return;
+	}
+
+	if (!RuleB(Features, DragonHoardEnabled)) { // [DH_RULE]
 		return;
 	}
 
