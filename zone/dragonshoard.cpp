@@ -1,8 +1,14 @@
 #include "dragonshoard.h"
 #include "client.h"
+#include "../common/global_define.h"
+#include "../common/item_instance.h"
 #include "../common/rulesys.h"
-// #include "../common/repositories/dragonhoard_items_repository.h"
-// TODO: create repository
+#include "../common/strings.h"
+#if __has_include("../common/repositories/dragonhoard_items_repository.h")
+#include "../common/repositories/dragonhoard_items_repository.h"
+#else
+// TODO: create repository.
+#endif
 
 // Dragon's Hoard feature handler
 // Universal implementation - patch-agnostic logic
@@ -16,8 +22,54 @@ void DragonHoard::SendItemList(Client* client)
 		return;
 	}
 
-	// TODO: query dragonhoard_items for this character and send each item
-	// via client->SendItemPacket(slot_id, inst, ItemPacketDragonHoard)
+	// [DH_SEND_ITEM_LIST]
+	const uint32 account_id = client->AccountID();
+	if (!account_id) {
+		return;
+	}
+
+	auto results = database.QueryDatabase(
+		fmt::format(
+			"SELECT slot_id, item_id, stack_count FROM dragonhoard_items "
+			"WHERE account_id = {} ORDER BY slot_id",
+			account_id
+		)
+	);
+
+	if (!results.Success()) {
+		LogError(
+			"DragonHoard::SendItemList failed for account_id {}: {}",
+			account_id,
+			results.ErrorMessage()
+		);
+		return;
+	}
+
+	for (auto row = results.begin(); row != results.end(); ++row) {
+		const uint32 slot_id = Strings::ToUnsignedInt(row[0]);
+		const uint32 item_id = Strings::ToUnsignedInt(row[1]);
+		const uint32 stack_count = Strings::ToUnsignedInt(row[2]);
+
+		const EQ::ItemData* item_data = database.GetItem(item_id);
+		if (!item_data) {
+			LogError(
+				"DragonHoard::SendItemList item_id {} not found for account_id {}",
+				item_id,
+				account_id
+			);
+			continue;
+		}
+
+		EQ::ItemInstance* inst = database.CreateItem(item_data, stack_count);
+		if (!inst) {
+			continue;
+		}
+
+		client->SendItemPacket(slot_id, inst, ItemPacketType::ItemPacketDragonHoard);
+		safe_delete(inst);
+	}
+
+	LogDebug("DragonHoard::SendItemList sent items to account_id {}", account_id);
 }
 
 void DragonHoard::HandleDeposit(Client* client, const EQApplicationPacket* app)

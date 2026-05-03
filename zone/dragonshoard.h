@@ -8,7 +8,7 @@ class EQApplicationPacket;
 // Dragon's Hoard feature handler
 // Universal implementation - patch-agnostic logic
 // Serialization is handled by the patch-specific serializer (tob.cpp etc.)
-// DB table: dragonhoard_items (character_id, slot_id, item_id)
+// [DH_SEND_ITEM_LIST] DB table: dragonhoard_items (account_id, slot_id, item_id, item_name, stack_count)
 
 namespace DragonHoard {
 
