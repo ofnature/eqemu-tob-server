@@ -40,6 +40,7 @@
 #include "zone/client_version.h"
 #include "zone/dialogue_window.h"
 #include "zone/dragonshoard.h"
+#include "zone/tradeskilldepot.h"
 #include "zone/dynamic_zone.h"
 #include "zone/event_codes.h"
 #include "zone/gm_commands/door_manipulation.h"
@@ -182,6 +183,7 @@ void MapOpcodes()
 	ConnectedOpcodes[OP_DisarmTraps] = &Client::Handle_OP_DisarmTraps;
 	ConnectedOpcodes[OP_DoGroupLeadershipAbility] = &Client::Handle_OP_DoGroupLeadershipAbility;
 	ConnectedOpcodes[OP_DragonHoard1] = &Client::Handle_OP_DragonHoard1;
+	ConnectedOpcodes[OP_TradeskillDepot] = &Client::Handle_OP_TradeskillDepot;
 	ConnectedOpcodes[OP_DragonHoard2] = &Client::Handle_OP_DragonHoard2;
 	ConnectedOpcodes[OP_DuelDecline] = &Client::Handle_OP_DuelDecline;
 	ConnectedOpcodes[OP_DuelAccept] = &Client::Handle_OP_DuelAccept;
@@ -17471,4 +17473,18 @@ void Client::Handle_OP_DragonHoard2(const EQApplicationPacket *app)
 	// OP_DragonHoard2 (0x603D) isn't sent by the TOB client (deposits route through
 	// OP_DragonHoard1 action=4); log if we ever receive it.
 	LogDebug("DragonHoard: Handle_OP_DragonHoard2 received (unexpected) size={}", app ? app->size : 0);
+}
+
+// Personal Tradeskill Depot (OP_TradeskillDepot = 0x2D36). Stream-serialized action packets;
+// action codes for deposit/retrieve are still being reverse-engineered. For now, log the raw
+// packet (leading action dword) so we can identify the actions, then route once known.
+void Client::Handle_OP_TradeskillDepot(const EQApplicationPacket *app)
+{
+	if (!app || app->size < 4) {
+		return;
+	}
+	uint32_t action = *(uint32_t*)app->pBuffer;
+	LogDebug("TradeskillDepot: OP_TradeskillDepot action={} size={} (routing TBD)", action, app->size);
+	// TODO: route by action to TradeskillDepot::HandleDeposit / HandleRetrieve once the
+	// stream deposit/retrieve action codes + layout are confirmed.
 }

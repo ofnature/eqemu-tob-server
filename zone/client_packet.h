@@ -114,6 +114,7 @@
 	void Handle_OP_DisarmTraps(const EQApplicationPacket *app);
 	void Handle_OP_DoGroupLeadershipAbility(const EQApplicationPacket *app);
 	void Handle_OP_DragonHoard1(const EQApplicationPacket *app); // open/retrieve
+	void Handle_OP_TradeskillDepot(const EQApplicationPacket *app);
 	void Handle_OP_DragonHoard2(const EQApplicationPacket *app); // deposit
 	void Handle_OP_DuelDecline(const EQApplicationPacket *app);
 	void Handle_OP_DuelAccept(const EQApplicationPacket *app);

@@ -92,6 +92,7 @@ set(zone_sources
 	task_manager.cpp
 	tasks.cpp
 	titles.cpp
+	tradeskilldepot.cpp
 	tradeskills.cpp
 	trading.cpp
 	trap.cpp

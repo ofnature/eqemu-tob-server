@@ -1182,6 +1182,7 @@ RULE_CATEGORY_END()
 RULE_CATEGORY(Features)
 // Dragon's Hoard — requires TOB client, default off
 RULE_BOOL(Features, DragonHoardEnabled, false, "Enables the Dragon's Hoard storage feature. Requires The Outer Brood (TOB) client. Default off.")
+RULE_BOOL(Features, TradeskillDepotEnabled, false, "Enables the Personal Tradeskill Depot feature. Requires The Outer Brood (TOB) client. Default off.")
 RULE_CATEGORY_END()
 
 #undef RULE_CATEGORY
