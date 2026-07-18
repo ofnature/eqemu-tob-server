@@ -106,7 +106,7 @@ bool Client::Process() {
 			DragonHoard::SendFeatureUnlock(this); // must precede SendUnlock — gates deposit
 			DragonHoard::SendUnlock(this);
 			DragonHoard::SendItemList(this);
-			TradeskillDepot::SendFeatureUnlock(this); // depot feature unlock (SendUnlock/ItemList TODO)
+			TradeskillDepot::SendFeatureUnlock(this); // must precede SendUnlock — gates deposit
 			TradeskillDepot::SendUnlock(this);
 			TradeskillDepot::SendItemList(this);
 		}

@@ -17476,15 +17476,9 @@ void Client::Handle_OP_DragonHoard2(const EQApplicationPacket *app)
 }
 
 // Personal Tradeskill Depot (OP_TradeskillDepot = 0x2D36). Stream-serialized action packets;
-// action codes for deposit/retrieve are still being reverse-engineered. For now, log the raw
-// packet (leading action dword) so we can identify the actions, then route once known.
+// TradeskillDepot::HandlePacket routes by the leading action dword (5 = deposit, 6 = withdraw,
+// 0/3/4/8 = state/list/capacity queries).
 void Client::Handle_OP_TradeskillDepot(const EQApplicationPacket *app)
 {
-	if (!app || app->size < 4) {
-		return;
-	}
-	uint32_t action = *(uint32_t*)app->pBuffer;
-	LogDebug("TradeskillDepot: OP_TradeskillDepot action={} size={} (routing TBD)", action, app->size);
-	// TODO: route by action to TradeskillDepot::HandleDeposit / HandleRetrieve once the
-	// stream deposit/retrieve action codes + layout are confirmed.
+	TradeskillDepot::HandlePacket(this, app);
 }

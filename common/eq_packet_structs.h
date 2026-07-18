@@ -1562,6 +1562,7 @@ enum ItemPacketType {
     ItemPacketRecovery       = 0x71,
     ItemPacketParcel         = 0x73,
     ItemPacketDragonHoard    = 0x77,
+    ItemPacketTradeskillDepot = 0x79,
     ItemPacketInvalid        = 0xFF
 };
 
