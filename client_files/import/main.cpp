@@ -25,6 +25,7 @@
 #include "common/path_manager.h"
 #include "common/platform.h"
 #include "common/repositories/base_data_repository.h"
+#include "common/repositories/skill_caps_repository.h"
 #include "common/rulesys.h"
 #include "common/shareddb.h"
 #include "common/strings.h"
@@ -216,40 +217,39 @@ void ImportSpells(SharedDatabase *db) {
 	fclose(f);
 }
 
-void ImportSkillCaps(SharedDatabase *db) {
+void ImportSkillCaps(SharedDatabase *db)
+{
 	LogInfo("Importing Skill Caps");
 
-	std::string file = fmt::format("{}/import/SkillCaps.txt", PathManager::Instance()->GetServerPath());
-	FILE *f = fopen(file.c_str(), "r");
-	if(!f) {
-		LogError("Unable to open {} to read, skipping.", file);
+	const std::string& file_name = fmt::format("{}/import/SkillCaps.txt", PathManager::Instance()->GetServerPath());
+
+	const auto& file_contents = File::GetContents(file_name);
+	if (!file_contents.error.empty()) {
+		LogError("{}, skipping.", file_contents.error);
 		return;
 	}
 
-	std::string delete_sql = "DELETE FROM skill_caps";
-	db->QueryDatabase(delete_sql);
+	std::vector<SkillCapsRepository::SkillCaps> v;
 
-	char buffer[2048];
-	while(fgets(buffer, 2048, f)) {
-		auto split = Strings::Split(buffer, '^');
+	auto e = SkillCapsRepository::NewEntity();
 
-		if(split.size() < 4) {
+	for (const auto& line: Strings::Split(file_contents.contents, "\n")) {
+		const auto& line_data = Strings::Split(line, '^');
+
+		if (line_data.size() < 4) {
 			continue;
 		}
 
-		int class_id, skill_id, level, cap;
-		class_id = Strings::ToInt(split[0].c_str());
-		skill_id = Strings::ToInt(split[1].c_str());
-		level = Strings::ToInt(split[2].c_str());
-		cap = Strings::ToInt(split[3].c_str());
+		e.class_id = static_cast<uint8_t>(Strings::ToUnsignedInt(line_data[0]));
+		e.skill_id = static_cast<uint8_t>(Strings::ToUnsignedInt(line_data[1]));
+		e.level    = static_cast<uint8_t>(Strings::ToUnsignedInt(line_data[2]));
+		e.cap      = Strings::ToUnsignedInt(line_data[3]);
 
-		std::string sql = StringFormat("INSERT INTO skill_caps(class, skillID, level, cap) VALUES(%d, %d, %d, %d)",
-			class_id, skill_id, level, cap);
-
-		db->QueryDatabase(sql);
+		v.emplace_back(e);
 	}
 
-	fclose(f);
+	SkillCapsRepository::DeleteWhere(*db, "TRUE");
+	SkillCapsRepository::InsertMany(*db, v);
 }
 
 void ImportBaseData(SharedDatabase *db)
