@@ -95,7 +95,7 @@ void CheckTOBOpcodeFile(const std::string &path)
 		fprintf(f, "OP_EnterChat=0x000f\n");
 		fprintf(f, "OP_PollResponse=0x0011\n");
 		fprintf(f, "OP_SystemFingerprint=0x0016\n");
-		fprintf(f, "OP_ExpansionList=0x0031\n");
+		fprintf(f, "OP_LoginExpansionPacketData=0x0031\n");
 		fclose(f);
 	}
 }

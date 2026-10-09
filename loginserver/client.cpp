@@ -483,6 +483,9 @@ void Client::DoSuccessfulLogin(LoginAccountsRepository::LoginAccounts &a)
 	if (m_client_version != cv_tob) {
 		SendExpansionPacketData(r.old());
 	}
+	else {
+		SendTOBExpansionList();
+	}
 
 	char encrypted_buffer[80] = { 0 };
 
@@ -557,6 +560,48 @@ void Client::SendExpansionPacketData(PlayerLoginReplyOld &plrs)
 			plrs.web_offer_min_views = ((EQ::expansions::bitDoD << 2) | 1) - 2;
 		}
 	}
+}
+
+void Client::SendTOBExpansionList()
+{
+	if (!server.options.IsDisplayExpansions()) {
+		return;
+	}
+
+	struct ExpansionEntry {
+		uint32_t name_str_id;  // eqlsstr_us.txt
+		uint32_t order_str_id; // eqlsstr_us.txt: 6046 "Order", 6030 "Order LS"
+	};
+
+	// Ruins of Kunark through The Outer Brood, in expansion bit order. Values match live (9/16/26).
+	constexpr ExpansionEntry expansions[] = {
+		{3007, 6046}, {3008, 6046}, {3009, 6046}, {3010, 6046}, {3012, 6046}, {3014, 6046},
+		{3031, 6046}, {3033, 6046}, {3036, 6046}, {3040, 6046}, {3045, 6046}, {3046, 6046},
+		{3047, 6046}, {3514, 6046}, {3516, 6046}, {3518, 6046}, {3520, 6046}, {3522, 6046},
+		{3524, 6046}, {3526, 6046}, {3528, 6046}, {3530, 6046}, {3532, 6046}, {3534, 6046},
+		{3535, 6046}, {3536, 6030}, {3537, 6030}, {3538, 6046}, {3539, 6046}, {3540, 6030},
+		{3541, 6030},
+	};
+
+	const auto owned_mask = static_cast<uint32_t>(server.options.GetMaxExpansions());
+
+	SerializeBuffer buf;
+	buf.WriteUInt32(0);
+	buf.WriteUInt32(0);
+	buf.WriteUInt16(0);
+	buf.WriteUInt32(static_cast<uint32_t>(std::size(expansions)));
+
+	for (uint32_t i = 0; i < std::size(expansions); ++i) {
+		buf.WriteUInt32(i + 1);
+		buf.WriteUInt8((owned_mask >> i) & 1);
+		buf.WriteUInt32(expansions[i].name_str_id);
+		buf.WriteUInt32(expansions[i].order_str_id);
+		buf.WriteInt32(-1);
+		buf.WriteUInt32(0);
+	}
+
+	auto out = std::make_unique<EQApplicationPacket>(OP_LoginExpansionPacketData, std::move(buf));
+	m_connection->QueuePacket(out.get());
 }
 
 std::string Client::GetClientLoggingDescription()

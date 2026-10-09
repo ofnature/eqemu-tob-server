@@ -39,6 +39,8 @@ public:
 	// Rof uses a separate data packet specifically for the expansion data
 	// Live, as of July 2021 uses a similar but slightly different seperate data packet
 	void SendExpansionPacketData(PlayerLoginReplyOld &plrs);
+	// TOB: expansion list with one owned flag per expansion ("You own x/y expansions" on server select)
+	void SendTOBExpansionList();
 	void SendPlayToWorld(const char *data);
 	void SendServerListPacket(uint32 seq);
 	void SendPlayResponse(EQApplicationPacket *outapp);
