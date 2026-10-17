@@ -18,12 +18,7 @@ HoardCache::HoardCache()
 {
 }
 
-HoardCache::~HoardCache()
-{
-	for (auto& [slot_id, inst] : m_slots) {
-		safe_delete(inst);
-	}
-}
+HoardCache::~HoardCache() = default;
 
 void HoardCache::EnsureLoaded(SharedDatabase& db, uint32 character_id)
 {
@@ -34,61 +29,57 @@ void HoardCache::EnsureLoaded(SharedDatabase& db, uint32 character_id)
 	m_loaded = true;
 
 	const auto rows = DragonhoardItemsRepository::GetWhere(
-		db, fmt::format("character_id = {}", character_id));
+		db, fmt::format("character_id = {} ORDER BY id", character_id));
+
+	// An evolving item's record is found by character and item id, as the inventory load does.
+	const auto evolving = CharacterEvolvingItemsRepository::GetWhere(
+		db, fmt::format("character_id = {} AND deleted_at IS NULL", character_id));
 
 	for (const auto& row : rows) {
-		EQ::ItemInstance* inst = db.CreateItem(
+		std::unique_ptr<EQ::ItemInstance> inst(db.CreateItem(
 			row.item_id, row.charges, 0, 0, 0, 0, 0, 0, row.attuned != 0, row.custom_data,
 			row.ornament_icon, row.ornament_idfile, static_cast<uint32>(row.ornament_hero_model)
-		);
+		));
 
-		if (inst) {
-			inst->SetColor(row.color);
-
-			// The record is soft-deleted while the item is in the hoard. Clear deleted_at in the copy:
-			// retrieve restores the record, and a later save of these details must not delete it again.
-			if (row.evolve_id) {
-				auto evolving = CharacterEvolvingItemsRepository::FindOne(db, row.evolve_id);
-				if (evolving.id) {
-					evolving.deleted_at = 0;
-					inst->GetEvolvingDetails() = evolving;
-					inst->CalculateEvolveProgression();
-				}
-			}
-		} else {
+		if (!inst) {
 			LogError(
-				"Dragon's Hoard item [{}] in slot [{}] of character [{}] could not be created",
-				row.item_id, row.slot_id, character_id
+				"Dragon's Hoard item [{}] in row [{}] of character [{}] could not be created",
+				row.item_id, row.id, character_id
 			);
+			continue;
 		}
 
-		m_slots[row.slot_id] = inst;
+		inst->SetColor(row.color);
+
+		if (inst->IsEvolving()) {
+			const auto record = std::find_if(evolving.begin(), evolving.end(), [&row](const auto& e) {
+				return e.item_id == row.item_id;
+			});
+
+			if (record != evolving.end()) {
+				inst->GetEvolvingDetails() = *record;
+				inst->CalculateEvolveProgression();
+			}
+		}
+
+		m_items.push_back({row.id, std::move(inst)});
 	}
 }
 
-uint32 HoardCache::FindFreeSlot(SharedDatabase& db, uint32 character_id)
+size_t HoardCache::Count(SharedDatabase& db, uint32 character_id)
 {
 	EnsureLoaded(db, character_id);
 
-	uint32 free_slot = 0;
-	for (const auto& [slot_id, inst] : m_slots) {
-		if (slot_id != free_slot) {
-			break;
-		}
-
-		++free_slot;
-	}
-
-	return free_slot;
+	return m_items.size();
 }
 
-bool HoardCache::Deposit(SharedDatabase& db, uint32 character_id, uint32 slot_id, EQ::ItemInstance* inst)
+const EQ::ItemInstance* HoardCache::Deposit(
+	SharedDatabase& db, uint32 character_id, std::unique_ptr<EQ::ItemInstance> inst)
 {
 	EnsureLoaded(db, character_id);
 
 	auto e = DragonhoardItemsRepository::NewEntity();
 	e.character_id        = character_id;
-	e.slot_id             = slot_id;
 	e.item_id             = inst->GetItem()->ID;
 	e.item_name           = inst->GetItem()->Name;
 	e.charges             = inst->GetCharges();
@@ -98,61 +89,50 @@ bool HoardCache::Deposit(SharedDatabase& db, uint32 character_id, uint32 slot_id
 	e.ornament_idfile     = inst->GetOrnamentationIDFile();
 	e.ornament_hero_model = static_cast<int32_t>(inst->GetOrnamentHeroModel());
 	e.custom_data         = inst->GetCustomDataString();
-	e.evolve_id           = inst->GetEvolveUniqueID();
 
-	// InsertOne reports success through the auto-increment id, which this table does not have.
-	if (DragonhoardItemsRepository::InsertMany(db, {e}) == 0) {
-		LogError(
-			"Dragon's Hoard write failed for character [{}] slot [{}] item [{}]",
-			character_id, slot_id, e.item_id
-		);
-		return false;
+	e = DragonhoardItemsRepository::InsertOne(db, e);
+	if (!e.id) {
+		LogError("Dragon's Hoard write failed for character [{}] item [{}]", character_id, inst->GetItem()->ID);
+		return nullptr;
 	}
 
-	m_slots[slot_id] = inst;
+	m_items.push_back({e.id, std::move(inst)});
 
-	return true;
+	return m_items.back().inst.get();
 }
 
-std::optional<uint32> HoardCache::FindSlot(SharedDatabase& db, uint32 character_id, int32 serial_number)
+std::vector<HoardCache::Entry>::iterator HoardCache::FindEntry(int32 serial_number)
+{
+	return std::find_if(m_items.begin(), m_items.end(), [serial_number](const Entry& entry) {
+		return entry.inst->GetSerialNumber() == serial_number;
+	});
+}
+
+EQ::ItemInstance* HoardCache::Find(SharedDatabase& db, uint32 character_id, int32 serial_number)
 {
 	EnsureLoaded(db, character_id);
 
-	const auto it = std::find_if(m_slots.begin(), m_slots.end(), [serial_number](const auto& slot) {
-		return slot.second && slot.second->GetSerialNumber() == serial_number;
-	});
+	const auto it = FindEntry(serial_number);
 
-	if (it == m_slots.end()) {
-		return std::nullopt;
-	}
-
-	return it->first;
+	return it != m_items.end() ? it->inst.get() : nullptr;
 }
 
-const EQ::ItemInstance* HoardCache::Get(uint32 slot_id) const
+std::unique_ptr<EQ::ItemInstance> HoardCache::Retrieve(SharedDatabase& db, uint32 character_id, int32 serial_number)
 {
-	const auto it = m_slots.find(slot_id);
+	EnsureLoaded(db, character_id);
 
-	return it != m_slots.end() ? it->second : nullptr;
-}
-
-EQ::ItemInstance* HoardCache::Retrieve(SharedDatabase& db, uint32 character_id, uint32 slot_id)
-{
-	const auto it = m_slots.find(slot_id);
-	if (it == m_slots.end() || !it->second) {
+	const auto it = FindEntry(serial_number);
+	if (it == m_items.end()) {
 		return nullptr;
 	}
 
-	const int deleted = DragonhoardItemsRepository::DeleteWhere(
-		db, fmt::format("character_id = {} AND slot_id = {}", character_id, slot_id));
-
-	if (deleted == 0) {
-		LogError("Dragon's Hoard delete failed for character [{}] slot [{}]", character_id, slot_id);
+	if (DragonhoardItemsRepository::DeleteOne(db, it->row_id) == 0) {
+		LogError("Dragon's Hoard delete failed for character [{}] row [{}]", character_id, it->row_id);
 		return nullptr;
 	}
 
-	EQ::ItemInstance* inst = it->second;
-	m_slots.erase(it);
+	auto inst = std::move(it->inst);
+	m_items.erase(it);
 
 	return inst;
 }

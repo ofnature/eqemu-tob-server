@@ -7273,8 +7273,8 @@ ALTER TABLE `character_pet_buffs`
 		.match = "",
 		.sql = R"(
 CREATE TABLE `dragonhoard_items` (
+  `id`                  int unsigned     NOT NULL AUTO_INCREMENT,
   `character_id`        int unsigned     NOT NULL,
-  `slot_id`             int unsigned     NOT NULL,
   `item_id`             int unsigned     NOT NULL,
   `item_name`           varchar(64)      NOT NULL,
   `charges`             smallint         NOT NULL,
@@ -7284,8 +7284,8 @@ CREATE TABLE `dragonhoard_items` (
   `ornament_idfile`     int unsigned     NOT NULL DEFAULT 0,
   `ornament_hero_model` int              NOT NULL DEFAULT 0,
   `custom_data`         text             DEFAULT NULL,
-  `evolve_id`           bigint unsigned  NOT NULL DEFAULT 0 COMMENT 'character_evolving_items.id',
-  PRIMARY KEY (`character_id`, `slot_id`)
+  PRIMARY KEY (`id`),
+  KEY `character_id` (`character_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 )",
 	},

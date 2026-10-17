@@ -36,8 +36,8 @@
 class BaseDragonhoardItemsRepository {
 public:
 	struct DragonhoardItems {
+		uint32_t    id;
 		uint32_t    character_id;
-		uint32_t    slot_id;
 		uint32_t    item_id;
 		std::string item_name;
 		int16_t     charges;
@@ -47,19 +47,18 @@ public:
 		uint32_t    ornament_idfile;
 		int32_t     ornament_hero_model;
 		std::string custom_data;
-		uint64_t    evolve_id;
 	};
 
 	static std::string PrimaryKey()
 	{
-		return std::string("character_id");
+		return std::string("id");
 	}
 
 	static std::vector<std::string> Columns()
 	{
 		return {
+			"id",
 			"character_id",
-			"slot_id",
 			"item_id",
 			"item_name",
 			"charges",
@@ -69,15 +68,14 @@ public:
 			"ornament_idfile",
 			"ornament_hero_model",
 			"custom_data",
-			"evolve_id",
 		};
 	}
 
 	static std::vector<std::string> SelectColumns()
 	{
 		return {
+			"id",
 			"character_id",
-			"slot_id",
 			"item_id",
 			"item_name",
 			"charges",
@@ -87,7 +85,6 @@ public:
 			"ornament_idfile",
 			"ornament_hero_model",
 			"custom_data",
-			"evolve_id",
 		};
 	}
 
@@ -128,8 +125,8 @@ public:
 	{
 		DragonhoardItems e{};
 
+		e.id                  = 0;
 		e.character_id        = 0;
-		e.slot_id             = 0;
 		e.item_id             = 0;
 		e.item_name           = "";
 		e.charges             = 0;
@@ -139,7 +136,6 @@ public:
 		e.ornament_idfile     = 0;
 		e.ornament_hero_model = 0;
 		e.custom_data         = "";
-		e.evolve_id           = 0;
 
 		return e;
 	}
@@ -150,7 +146,7 @@ public:
 	)
 	{
 		for (auto &dragonhoard_items : dragonhoard_itemss) {
-			if (dragonhoard_items.character_id == dragonhoard_items_id) {
+			if (dragonhoard_items.id == dragonhoard_items_id) {
 				return dragonhoard_items;
 			}
 		}
@@ -176,8 +172,8 @@ public:
 		if (results.RowCount() == 1) {
 			DragonhoardItems e{};
 
-			e.character_id        = row[0] ? static_cast<uint32_t>(strtoul(row[0], nullptr, 10)) : 0;
-			e.slot_id             = row[1] ? static_cast<uint32_t>(strtoul(row[1], nullptr, 10)) : 0;
+			e.id                  = row[0] ? static_cast<uint32_t>(strtoul(row[0], nullptr, 10)) : 0;
+			e.character_id        = row[1] ? static_cast<uint32_t>(strtoul(row[1], nullptr, 10)) : 0;
 			e.item_id             = row[2] ? static_cast<uint32_t>(strtoul(row[2], nullptr, 10)) : 0;
 			e.item_name           = row[3] ? row[3] : "";
 			e.charges             = row[4] ? static_cast<int16_t>(atoi(row[4])) : 0;
@@ -187,7 +183,6 @@ public:
 			e.ornament_idfile     = row[8] ? static_cast<uint32_t>(strtoul(row[8], nullptr, 10)) : 0;
 			e.ornament_hero_model = row[9] ? static_cast<int32_t>(atoi(row[9])) : 0;
 			e.custom_data         = row[10] ? row[10] : "";
-			e.evolve_id           = row[11] ? strtoull(row[11], nullptr, 10) : 0;
 
 			return e;
 		}
@@ -221,8 +216,7 @@ public:
 
 		auto columns = Columns();
 
-		v.push_back(columns[0] + " = " + std::to_string(e.character_id));
-		v.push_back(columns[1] + " = " + std::to_string(e.slot_id));
+		v.push_back(columns[1] + " = " + std::to_string(e.character_id));
 		v.push_back(columns[2] + " = " + std::to_string(e.item_id));
 		v.push_back(columns[3] + " = '" + Strings::Escape(e.item_name) + "'");
 		v.push_back(columns[4] + " = " + std::to_string(e.charges));
@@ -232,7 +226,6 @@ public:
 		v.push_back(columns[8] + " = " + std::to_string(e.ornament_idfile));
 		v.push_back(columns[9] + " = " + std::to_string(e.ornament_hero_model));
 		v.push_back(columns[10] + " = '" + Strings::Escape(e.custom_data) + "'");
-		v.push_back(columns[11] + " = " + std::to_string(e.evolve_id));
 
 		auto results = db.QueryDatabase(
 			fmt::format(
@@ -240,7 +233,7 @@ public:
 				TableName(),
 				Strings::Implode(", ", v),
 				PrimaryKey(),
-				e.character_id
+				e.id
 			)
 		);
 
@@ -254,8 +247,8 @@ public:
 	{
 		std::vector<std::string> v;
 
+		v.push_back(std::to_string(e.id));
 		v.push_back(std::to_string(e.character_id));
-		v.push_back(std::to_string(e.slot_id));
 		v.push_back(std::to_string(e.item_id));
 		v.push_back("'" + Strings::Escape(e.item_name) + "'");
 		v.push_back(std::to_string(e.charges));
@@ -265,7 +258,6 @@ public:
 		v.push_back(std::to_string(e.ornament_idfile));
 		v.push_back(std::to_string(e.ornament_hero_model));
 		v.push_back("'" + Strings::Escape(e.custom_data) + "'");
-		v.push_back(std::to_string(e.evolve_id));
 
 		auto results = db.QueryDatabase(
 			fmt::format(
@@ -276,7 +268,7 @@ public:
 		);
 
 		if (results.Success()) {
-			e.character_id = results.LastInsertedID();
+			e.id = results.LastInsertedID();
 			return e;
 		}
 
@@ -295,8 +287,8 @@ public:
 		for (auto &e: entries) {
 			std::vector<std::string> v;
 
+			v.push_back(std::to_string(e.id));
 			v.push_back(std::to_string(e.character_id));
-			v.push_back(std::to_string(e.slot_id));
 			v.push_back(std::to_string(e.item_id));
 			v.push_back("'" + Strings::Escape(e.item_name) + "'");
 			v.push_back(std::to_string(e.charges));
@@ -306,7 +298,6 @@ public:
 			v.push_back(std::to_string(e.ornament_idfile));
 			v.push_back(std::to_string(e.ornament_hero_model));
 			v.push_back("'" + Strings::Escape(e.custom_data) + "'");
-			v.push_back(std::to_string(e.evolve_id));
 
 			insert_chunks.push_back("(" + Strings::Implode(",", v) + ")");
 		}
@@ -340,8 +331,8 @@ public:
 		for (auto row = results.begin(); row != results.end(); ++row) {
 			DragonhoardItems e{};
 
-			e.character_id        = row[0] ? static_cast<uint32_t>(strtoul(row[0], nullptr, 10)) : 0;
-			e.slot_id             = row[1] ? static_cast<uint32_t>(strtoul(row[1], nullptr, 10)) : 0;
+			e.id                  = row[0] ? static_cast<uint32_t>(strtoul(row[0], nullptr, 10)) : 0;
+			e.character_id        = row[1] ? static_cast<uint32_t>(strtoul(row[1], nullptr, 10)) : 0;
 			e.item_id             = row[2] ? static_cast<uint32_t>(strtoul(row[2], nullptr, 10)) : 0;
 			e.item_name           = row[3] ? row[3] : "";
 			e.charges             = row[4] ? static_cast<int16_t>(atoi(row[4])) : 0;
@@ -351,7 +342,6 @@ public:
 			e.ornament_idfile     = row[8] ? static_cast<uint32_t>(strtoul(row[8], nullptr, 10)) : 0;
 			e.ornament_hero_model = row[9] ? static_cast<int32_t>(atoi(row[9])) : 0;
 			e.custom_data         = row[10] ? row[10] : "";
-			e.evolve_id           = row[11] ? strtoull(row[11], nullptr, 10) : 0;
 
 			all_entries.push_back(e);
 		}
@@ -376,8 +366,8 @@ public:
 		for (auto row = results.begin(); row != results.end(); ++row) {
 			DragonhoardItems e{};
 
-			e.character_id        = row[0] ? static_cast<uint32_t>(strtoul(row[0], nullptr, 10)) : 0;
-			e.slot_id             = row[1] ? static_cast<uint32_t>(strtoul(row[1], nullptr, 10)) : 0;
+			e.id                  = row[0] ? static_cast<uint32_t>(strtoul(row[0], nullptr, 10)) : 0;
+			e.character_id        = row[1] ? static_cast<uint32_t>(strtoul(row[1], nullptr, 10)) : 0;
 			e.item_id             = row[2] ? static_cast<uint32_t>(strtoul(row[2], nullptr, 10)) : 0;
 			e.item_name           = row[3] ? row[3] : "";
 			e.charges             = row[4] ? static_cast<int16_t>(atoi(row[4])) : 0;
@@ -387,7 +377,6 @@ public:
 			e.ornament_idfile     = row[8] ? static_cast<uint32_t>(strtoul(row[8], nullptr, 10)) : 0;
 			e.ornament_hero_model = row[9] ? static_cast<int32_t>(atoi(row[9])) : 0;
 			e.custom_data         = row[10] ? row[10] : "";
-			e.evolve_id           = row[11] ? strtoull(row[11], nullptr, 10) : 0;
 
 			all_entries.push_back(e);
 		}
@@ -462,8 +451,8 @@ public:
 	{
 		std::vector<std::string> v;
 
+		v.push_back(std::to_string(e.id));
 		v.push_back(std::to_string(e.character_id));
-		v.push_back(std::to_string(e.slot_id));
 		v.push_back(std::to_string(e.item_id));
 		v.push_back("'" + Strings::Escape(e.item_name) + "'");
 		v.push_back(std::to_string(e.charges));
@@ -473,7 +462,6 @@ public:
 		v.push_back(std::to_string(e.ornament_idfile));
 		v.push_back(std::to_string(e.ornament_hero_model));
 		v.push_back("'" + Strings::Escape(e.custom_data) + "'");
-		v.push_back(std::to_string(e.evolve_id));
 
 		auto results = db.QueryDatabase(
 			fmt::format(
@@ -496,8 +484,8 @@ public:
 		for (auto &e: entries) {
 			std::vector<std::string> v;
 
+			v.push_back(std::to_string(e.id));
 			v.push_back(std::to_string(e.character_id));
-			v.push_back(std::to_string(e.slot_id));
 			v.push_back(std::to_string(e.item_id));
 			v.push_back("'" + Strings::Escape(e.item_name) + "'");
 			v.push_back(std::to_string(e.charges));
@@ -507,7 +495,6 @@ public:
 			v.push_back(std::to_string(e.ornament_idfile));
 			v.push_back(std::to_string(e.ornament_hero_model));
 			v.push_back("'" + Strings::Escape(e.custom_data) + "'");
-			v.push_back(std::to_string(e.evolve_id));
 
 			insert_chunks.push_back("(" + Strings::Implode(",", v) + ")");
 		}

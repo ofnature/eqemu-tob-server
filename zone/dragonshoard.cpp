@@ -1,11 +1,14 @@
 #include "zone/dragonshoard.h"
 
 #include "common/eqemu_logsys.h"
+#include "common/misc_functions.h"
 #include "zone/client.h"
 #include "zone/string_ids.h"
 #include "zone/zonedb.h"
 
 #include <algorithm>
+#include <iterator>
+#include <list>
 
 namespace DragonHoard {
 
@@ -27,31 +30,26 @@ struct SlotCount_Struct {
 	Action action;
 	uint32 slot_count;
 };
-static_assert(sizeof(SlotCount_Struct) == 8, "SlotCount_Struct size mismatch");
 
 struct Enable_Struct {
 	Action action;
 	uint8  flag;
 };
-static_assert(sizeof(Enable_Struct) == 5, "Enable_Struct size mismatch");
 
 struct Ack_Struct {
 	Action action;
 };
-static_assert(sizeof(Ack_Struct) == 4, "Ack_Struct size mismatch");
 
 struct DepositRequest_Struct {
 	Action action;
 	uint64 serial_number;
 };
-static_assert(sizeof(DepositRequest_Struct) == 12, "DepositRequest_Struct size mismatch");
 
 struct Retrieve_Struct {
 	Action action;
 	uint64 serial_number;
 	uint32 quantity; // always 1 from the client; the serial number identifies the row
 };
-static_assert(sizeof(Retrieve_Struct) == 16, "Retrieve_Struct size mismatch");
 
 #pragma pack(pop)
 
@@ -65,24 +63,10 @@ void Send(Client* client, const T& body)
 }
 
 // The client counts each deposit and retrieve request as a pending operation and locks its
-// inventory until the count is released, so every request ends with this, as on live.
+// inventory until the count is released, so every handled request ends with this, as on live.
 void SendAck(Client* client)
 {
 	Send(client, Ack_Struct{Action::Ack});
-}
-
-// Not VERIFY_PACKET_LENGTH: a rejected request still has to send the Ack.
-template <typename T>
-bool HasExactSize(Client* client, const EQApplicationPacket* app)
-{
-	if (app->size == sizeof(T)) {
-		return true;
-	}
-
-	LogNetcode("OP_DragonHoard size mismatch, expected [{}] got [{}]", sizeof(T), app->size);
-	SendAck(client);
-
-	return false;
 }
 
 bool IsEnabled(Client* client)
@@ -99,7 +83,7 @@ void SendSlotCount(Client* client)
 void SendItemRow(Client* client, const EQ::ItemInstance* inst)
 {
 	// The client keys hoard rows by item serial number. The slot only has to pass the inventory
-	// checks in SendItemPacket, which hoard slot ids would not.
+	// checks in SendItemPacket.
 	client->SendItemPacket(EQ::invslot::slotCursor, inst, ItemPacketType::ItemPacketDragonHoard);
 }
 
@@ -107,7 +91,7 @@ void SendItemRow(Client* client, const EQ::ItemInstance* inst)
 // skips rows it already lists.
 void SendItemList(Client* client)
 {
-	client->GetHoardCache().ForEach(database, client->CharacterID(), [client](uint32, const EQ::ItemInstance* inst) {
+	client->GetHoardCache().ForEach(database, client->CharacterID(), [client](const EQ::ItemInstance* inst) {
 		SendItemRow(client, inst);
 	});
 
@@ -116,6 +100,8 @@ void SendItemList(Client* client)
 
 void HandleDeposit(Client* client, const EQApplicationPacket* app)
 {
+	VERIFY_PACKET_LENGTH(OP_DragonHoard, app, DepositRequest_Struct);
+
 	const auto* request = reinterpret_cast<const DepositRequest_Struct*>(app->pBuffer);
 
 	EQ::ItemInstance* cursor_item = client->GetInv().GetItem(EQ::invslot::slotCursor);
@@ -134,28 +120,40 @@ void HandleDeposit(Client* client, const EQApplicationPacket* app)
 		return;
 	}
 
-	HoardCache&  cache   = client->GetHoardCache();
-	const uint32 slot_id = cache.FindFreeSlot(database, client->CharacterID());
-	if (slot_id >= cache.SlotLimit()) {
+	HoardCache& cache = client->GetHoardCache();
+	if (cache.Count(database, client->CharacterID()) >= cache.SlotLimit()) {
 		client->Message(Chat::Red, "Your Dragon's Hoard is full.");
 		SendAck(client);
 		return;
 	}
 
-	EQ::ItemInstance* hoard_item = cursor_item->Clone();
-
+	// Both writes run and are checked before anything changes in memory, so a failure rolls back
+	// with the item still on the cursor: the cursor saved without its first item, then the row.
 	database.TransactionBegin();
 
-	if (!cache.Deposit(database, client->CharacterID(), slot_id, hoard_item)) {
+	auto       remaining_begin = std::next(client->GetInv().cursor_cbegin());
+	auto       remaining_end   = client->GetInv().cursor_cend();
+	const bool cursor_saved    = database.SaveCursor(client->CharacterID(), remaining_begin, remaining_end);
+
+	const EQ::ItemInstance* hoard_item = !cursor_saved ? nullptr : cache.Deposit(
+		database, client->CharacterID(), std::unique_ptr<EQ::ItemInstance>(cursor_item->Clone()));
+
+	if (!hoard_item) {
 		database.TransactionRollback();
-		safe_delete(hoard_item);
 		client->Message(Chat::Red, "Your Dragon's Hoard could not store that item.");
 		SendAck(client);
 		return;
 	}
 
-	client->DeleteItemInInventory(EQ::invslot::slotCursor, 0, true);
-	database.TransactionCommit();
+	client->DeleteItemInInventory(EQ::invslot::slotCursor, 0, true, false);
+
+	// DeleteItemInInventory soft-deletes an evolving item's record. The item still exists, so the
+	// record stays active, as it does for an item in the inventory.
+	hoard_item->TransferOwnership(database, client->CharacterID());
+
+	if (!database.TransactionCommit().Success()) {
+		LogError("Dragon's Hoard deposit of character [{}] was not committed", client->CharacterID());
+	}
 
 	// Same order as live: the new row, the Ack, then the full list.
 	SendItemRow(client, hoard_item);
@@ -165,12 +163,14 @@ void HandleDeposit(Client* client, const EQApplicationPacket* app)
 
 void HandleRetrieve(Client* client, const EQApplicationPacket* app)
 {
+	VERIFY_PACKET_LENGTH(OP_DragonHoard, app, Retrieve_Struct);
+
 	const auto* request       = reinterpret_cast<const Retrieve_Struct*>(app->pBuffer);
 	const auto  serial_number = static_cast<int32>(request->serial_number);
 
-	HoardCache& cache   = client->GetHoardCache();
-	const auto  slot_id = cache.FindSlot(database, client->CharacterID(), serial_number);
-	if (!slot_id) {
+	HoardCache&       cache  = client->GetHoardCache();
+	EQ::ItemInstance* stored = cache.Find(database, client->CharacterID(), serial_number);
+	if (!stored) {
 		SendAck(client);
 		return;
 	}
@@ -181,15 +181,23 @@ void HandleRetrieve(Client* client, const EQApplicationPacket* app)
 		return;
 	}
 
-	if (client->CheckLoreConflict(cache.Get(*slot_id)->GetItem())) {
+	if (client->CheckLoreConflict(stored->GetItem())) {
 		client->MessageString(Chat::Red, DUP_LORE);
 		SendAck(client);
 		return;
 	}
 
+	// Both writes run and are checked before anything changes in memory, so a failure rolls back
+	// with the item still in the hoard: the (empty) cursor saved holding the item, then the row
+	// delete. PushItemOnCursor then saves the same cursor again.
 	database.TransactionBegin();
 
-	EQ::ItemInstance* item = cache.Retrieve(database, client->CharacterID(), *slot_id);
+	const std::list<EQ::ItemInstance*> cursor_after{stored};
+	auto                               cursor_begin = cursor_after.cbegin();
+	auto                               cursor_end   = cursor_after.cend();
+	const bool cursor_saved = database.SaveCursor(client->CharacterID(), cursor_begin, cursor_end);
+
+	const auto item = cursor_saved ? cache.Retrieve(database, client->CharacterID(), serial_number) : nullptr;
 	if (!item) {
 		database.TransactionRollback();
 		client->Message(Chat::Red, "Your Dragon's Hoard could not release that item.");
@@ -197,25 +205,17 @@ void HandleRetrieve(Client* client, const EQApplicationPacket* app)
 		return;
 	}
 
-	// Deposit soft-deleted the evolving record along with the inventory row. Restore it so the
-	// inventory load finds the item's progress again.
-	item->TransferOwnership(database, client->CharacterID());
+	client->PushItemOnCursor(*item, true);
 
-	if (!client->PushItemOnCursor(*item, true)) {
-		LogError(
-			"Dragon's Hoard item [{}] of character [{}] reached the cursor but was not saved",
-			item->GetItem()->ID, client->CharacterID()
-		);
+	if (!database.TransactionCommit().Success()) {
+		LogError("Dragon's Hoard retrieve of character [{}] was not committed", client->CharacterID());
 	}
-
-	database.TransactionCommit();
 
 	// The client removes the row only when the quantity covers the count it lists.
 	const auto quantity = static_cast<uint32>(std::max<int16>(item->GetCharges(), 1));
 
 	Send(client, Retrieve_Struct{Action::Retrieve, request->serial_number, quantity});
 	SendAck(client);
-	safe_delete(item);
 }
 
 } // namespace
@@ -226,22 +226,24 @@ void HandlePacket(Client* client, const EQApplicationPacket* app)
 		return;
 	}
 
+	// A request is handled only at its exact size; anything else is dropped. Window open and the
+	// slot-count request are the action alone.
 	switch (static_cast<Action>(app->ReadUInt32(0))) {
 		case Action::SetSlotCount:
-			SendSlotCount(client);
+			if (app->size == sizeof(Action)) {
+				SendSlotCount(client);
+			}
 			break;
 		case Action::WindowOpen:
-			SendItemList(client);
+			if (app->size == sizeof(Action)) {
+				SendItemList(client);
+			}
 			break;
 		case Action::Deposit:
-			if (HasExactSize<DepositRequest_Struct>(client, app)) {
-				HandleDeposit(client, app);
-			}
+			HandleDeposit(client, app);
 			break;
 		case Action::Retrieve:
-			if (HasExactSize<Retrieve_Struct>(client, app)) {
-				HandleRetrieve(client, app);
-			}
+			HandleRetrieve(client, app);
 			break;
 		default:
 			break;
