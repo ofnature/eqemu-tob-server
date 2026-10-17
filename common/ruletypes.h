@@ -1181,6 +1181,7 @@ RULE_CATEGORY_END()
 
 RULE_CATEGORY(Features)
 RULE_INT(Features, DragonsHoard, 0, "Dragon's Hoard slot count. 0 disables the feature (TOB client only).")
+RULE_BOOL(Features, TradeskillDepotEnabled, false, "Enables the Tradeskill Depot (TOB client only).")
 RULE_CATEGORY_END()
 
 #undef RULE_CATEGORY

@@ -36,6 +36,25 @@ CREATE TABLE `new_table`  (
 )",
 		.content_schema_update = false,
 	},
+	ManifestEntry{
+		.version = 2,
+		.description = "2026_07_17_tradeskill_depot_items",
+		.check = "SHOW TABLES LIKE 'tradeskill_depot_items'",
+		.condition = "empty",
+		.match = "",
+		.sql = R"(
+CREATE TABLE `tradeskill_depot_items` (
+  `account_id` int unsigned      NOT NULL,
+  `slot_id`    smallint unsigned NOT NULL,
+  `item_id`    int unsigned      NOT NULL,
+  `item_name`  varchar(64)       NOT NULL DEFAULT '' COMMENT 'cached for GM/DB readability',
+  `quantity`   int unsigned      NOT NULL DEFAULT 1 COMMENT 'stack size; depot allows larger stacks than inventory (e.g. ~10k)',
+  PRIMARY KEY (`account_id`, `slot_id`),
+  KEY `ix_account_id` (`account_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+)",
+		.content_schema_update = false,
+	},
 // Used for testing
 //	ManifestEntry{
 //		.version = 9229,

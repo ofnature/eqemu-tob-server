@@ -104,6 +104,8 @@ namespace EQ
 	// { claim_id, value }; the client enables the matching feature/window when the id is present.
 	enum class ClaimId : uint32 {
 		DragonsHoard = 2016763,
+		TradeskillDepot = 2018125,
+		TradeskillDepotSecondary = 2018260, // sent with TradeskillDepot; its own role is unconfirmed
 	};
 
 	namespace invtype {

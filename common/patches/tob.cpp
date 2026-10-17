@@ -2105,13 +2105,20 @@ namespace TOB
 		out.WriteUInt32(emu->platinum_shared);
 
 		const auto dragonhoard_slots = static_cast<uint32>(std::max(RuleI(Features, DragonsHoard), 0));
+		const bool tradeskill_depot  = RuleB(Features, TradeskillDepotEnabled);
 
 		//u32 claim_count;
-		out.WriteUInt32(dragonhoard_slots ? 1 : 0);
+		out.WriteUInt32((dragonhoard_slots ? 1 : 0) + (tradeskill_depot ? 2 : 0));
 		//Claim claims[claim_count]; { u32 claim_id, u32 value }
 		if (dragonhoard_slots) {
 			out.WriteUInt32(static_cast<uint32>(EQ::ClaimId::DragonsHoard));
 			out.WriteUInt32(dragonhoard_slots);
+		}
+		if (tradeskill_depot) {
+			out.WriteUInt32(static_cast<uint32>(EQ::ClaimId::TradeskillDepot));
+			out.WriteUInt32(1);
+			out.WriteUInt32(static_cast<uint32>(EQ::ClaimId::TradeskillDepotSecondary));
+			out.WriteUInt32(1);
 		}
 
 		//Tribute tribute;
@@ -5031,7 +5038,7 @@ namespace TOB
 		buffer.WriteUInt8(0); //unsupported atm
 
 		//bool Tradeskills;
-		buffer.WriteUInt8(0); //unsupported atm
+		buffer.WriteUInt8(item->Tradeskills ? 1 : 0); // gates Personal Tradeskill Depot eligibility (client offset +234)
 
 		//s8 SvCold;
 		//s8 SvDisease;
@@ -5564,9 +5571,16 @@ namespace TOB
 		buffer.WriteString(item_guid);
 
 		//u32 StackCount;
-		auto stacksize =
-			item->ID == PARCEL_MONEY_ITEM_ID ? inst->GetPrice() : (inst->IsStackable() ? ((inst->GetCharges() > 1000)
-				? 0xFFFFFFFF : inst->GetCharges()) : 1);
+		// Tradeskill Depot rows carry the full depot pile size (can exceed int16 charges and
+		// inventory StackSize; ~10k+ on live), stashed in MerchantCount by the depot code.
+		uint32 stacksize;
+		if (item->ID == PARCEL_MONEY_ITEM_ID) {
+			stacksize = (uint32)inst->GetPrice();
+		} else if (packet_type == ItemPacketTradeskillDepot) {
+			stacksize = (uint32)inst->GetMerchantCount();
+		} else {
+			stacksize = inst->IsStackable() ? ((inst->GetCharges() > 1000) ? 0xFFFFFFFF : (uint32)inst->GetCharges()) : 1;
+		}
 		buffer.WriteUInt32(stacksize);
 
 		structs::InventorySlot_Struct slot_id{};
@@ -6474,6 +6488,8 @@ namespace TOB
 			return item::ItemPacketType::ItemPacketParcel;
 		case ItemPacketType::ItemPacketDragonHoard:
 			return item::ItemPacketType::ItemPacketDragonHoard;
+		case ItemPacketType::ItemPacketTradeskillDepot:
+			return item::ItemPacketType::ItemPacketTradeskillDepot;
 		default:
 			return item::ItemPacketType::ItemPacketInvalid;
 		}

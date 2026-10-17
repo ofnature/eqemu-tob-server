@@ -40,6 +40,7 @@
 #include "zone/client_version.h"
 #include "zone/dialogue_window.h"
 #include "zone/dragonshoard.h"
+#include "zone/tradeskilldepot.h"
 #include "zone/dynamic_zone.h"
 #include "zone/event_codes.h"
 #include "zone/gm_commands/door_manipulation.h"
@@ -183,6 +184,7 @@ void MapOpcodes()
 	ConnectedOpcodes[OP_DisarmTraps] = &Client::Handle_OP_DisarmTraps;
 	ConnectedOpcodes[OP_DoGroupLeadershipAbility] = &Client::Handle_OP_DoGroupLeadershipAbility;
 	ConnectedOpcodes[OP_DragonHoard] = &Client::Handle_OP_DragonHoard;
+	ConnectedOpcodes[OP_TradeskillDepot] = &Client::Handle_OP_TradeskillDepot;
 	ConnectedOpcodes[OP_DuelDecline] = &Client::Handle_OP_DuelDecline;
 	ConnectedOpcodes[OP_DuelAccept] = &Client::Handle_OP_DuelAccept;
 	ConnectedOpcodes[OP_DumpName] = &Client::Handle_OP_DumpName;
@@ -17447,4 +17449,12 @@ void Client::SyncWorldPositionsToClient(bool ignore_idle)
 void Client::Handle_OP_DragonHoard(const EQApplicationPacket *app)
 {
 	DragonHoard::HandlePacket(this, app);
+}
+
+// Personal Tradeskill Depot (OP_TradeskillDepot = 0x2D36). Stream-serialized action packets;
+// TradeskillDepot::HandlePacket routes by the leading action dword (5 = deposit, 6 = withdraw,
+// 0/3/4/8 = state/list/capacity queries).
+void Client::Handle_OP_TradeskillDepot(const EQApplicationPacket *app)
+{
+	TradeskillDepot::HandlePacket(this, app);
 }
