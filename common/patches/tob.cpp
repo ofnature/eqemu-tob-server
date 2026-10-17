@@ -1063,9 +1063,13 @@ namespace TOB
 		// enable tutorial at character create/select
 		*(char*)&__packet->pBuffer[0x5f8] = 1;
 
-		// client defaults, unused
-		*(int32_t*)&__packet->pBuffer[0x63c] = -1;
+		// client process/module scan: 0x63c = scan interval (-1 = every 60-180s, N = every N-3N s, 0 = never),
+		// 0x640 = what the client does with the result. The server never reads the scan report and the scan stalls
+		// the client, so keep it off.
+		*(int32_t*)&__packet->pBuffer[0x63c] = 0;
 		*(int32_t*)&__packet->pBuffer[0x640] = 0;
+
+		// client defaults, unused
 		*(char*)&__packet->pBuffer[0x745] = 0;
 		*(char*)&__packet->pBuffer[0x750] = 1;
 
