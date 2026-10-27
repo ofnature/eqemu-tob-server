@@ -4272,6 +4272,13 @@ void Client::Handle_OP_Camp(const EQApplicationPacket *app)
 
 		auto outapp = new EQApplicationPacket(OP_Camp, 1);
 		FastQueuePacket(&outapp);
+
+		// In a zone without combat the client offers "Fast camp now?" when it gets an OP_Logout of two zero
+		// bytes; answering yes sends OP_Logout back.
+		if (!GetGM() && !zone->CanDoCombat()) {
+			auto offer = new EQApplicationPacket(OP_Logout, 2);
+			FastQueuePacket(&offer);
+		}
 	}
 	else {
 		if (GetGM())
@@ -10250,6 +10257,13 @@ void Client::Handle_OP_LoadSpellSet(const EQApplicationPacket *app)
 void Client::Handle_OP_Logout(const EQApplicationPacket *app)
 {
 	LogDebug("[{}] sent a logout packet", GetName());
+
+	// Honoured only after camping: the camp timer has run out, or fast camp while camping in a zone without combat.
+	const bool fast_camp = camp_timer.Enabled() && !zone->CanDoCombat();
+	if (!GetGM() && !instalog && !fast_camp) {
+		LogDebug("[{}] logout ignored, not done camping", GetName());
+		return;
+	}
 
 	SendLogoutPackets();
 
