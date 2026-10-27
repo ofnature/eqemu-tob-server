@@ -12346,6 +12346,7 @@ void Client::Handle_OP_QueryUCSServerStatus(const EQApplicationPacket *app)
 			ConnectionType = EQ::versions::ucsRoF2Combined;
 			break;
 		case EQ::versions::ClientVersion::TOB:
+		case EQ::versions::ClientVersion::SoR: // same chat protocol
 			ConnectionType = EQ::versions::ucsTOBCombined;
 			break;
 		default:

@@ -33,7 +33,8 @@ namespace EQ
 			UF,			// Build: 'Jun  8 2010 16:44:32'
 			RoF,		// Build: 'Dec 10 2012 17:35:44'
 			RoF2,		// Build: 'May 10 2013 23:30:08'
-			TOB         // Build: 'Sep 11 2025 11:54:10'
+			TOB,        // Build: 'Sep 11 2025 11:54:10'
+			SoR         // Build: 'Sep 17 2026' (live snapshot)
 		};
 
 		enum ClientVersionBitmask : uint32 {
@@ -46,6 +47,7 @@ namespace EQ
 			bitRoF = 0x00000020,
 			bitRoF2 = 0x00000040,
 			bitTOB = 0x00000080,
+			bitSoR = 0x00000100,
 			maskUnknown = 0x00000000,
 			maskTitaniumAndEarlier = 0x00000003,
 			maskSoFAndEarlier = 0x00000007,
@@ -58,10 +60,11 @@ namespace EQ
 			maskRoFAndLater = 0xFFFFFFE0,
 			maskRoF2AndLater = 0xFFFFFFC0,
 			maskTOBAndLater = 0xFFFFFF80,
+			maskSoRAndLater = 0xFFFFFF00,
 			maskAllClients = 0xFFFFFFFF
 		};
 
-		inline constexpr ClientVersion LastClientVersion = ClientVersion::TOB;
+		inline constexpr ClientVersion LastClientVersion = ClientVersion::SoR;
 		inline constexpr size_t ClientVersionCount = (static_cast<size_t>(LastClientVersion) + 1);
 
 		bool IsValidClientVersion(ClientVersion client_version);
@@ -80,6 +83,7 @@ namespace EQ
 			RoF,
 			RoF2,
 			TOB,
+			SoR,
 			NPC,
 			NPCMerchant,
 			Merc,
@@ -94,13 +98,14 @@ namespace EQ
 			OfflineUF,
 			OfflineRoF,
 			OfflineRoF2,
-			OfflineTOB
+			OfflineTOB,
+			OfflineSoR
 		};
 
-		const MobVersion LastMobVersion = MobVersion::OfflineTOB;
-		const MobVersion LastPCMobVersion = MobVersion::TOB;
+		const MobVersion LastMobVersion = MobVersion::OfflineSoR;
+		const MobVersion LastPCMobVersion = MobVersion::SoR;
 		const MobVersion LastNonPCMobVersion = MobVersion::BotPet;
-		const MobVersion LastOfflinePCMobVersion = MobVersion::OfflineTOB;
+		const MobVersion LastOfflinePCMobVersion = MobVersion::OfflineSoR;
 		const size_t MobVersionCount = (static_cast<size_t>(LastMobVersion) + 1);
 
 		bool IsValidMobVersion(MobVersion mob_version);

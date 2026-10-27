@@ -56,6 +56,8 @@ const char* EQ::versions::ClientVersionName(ClientVersion client_version)
 		return "RoF2";
 	case ClientVersion::TOB:
 		return "TOB";
+	case ClientVersion::SoR:
+		return "SoR";
 	default:
 		return "Invalid Version";
 	};
@@ -78,6 +80,8 @@ uint32 EQ::versions::ConvertClientVersionToClientVersionBit(ClientVersion client
 		return bitRoF2;
 	case ClientVersion::TOB:
 		return bitTOB;
+	case ClientVersion::SoR:
+		return bitSoR;
 	default:
 		return bitUnknown;
 	}
@@ -100,6 +104,8 @@ EQ::versions::ClientVersion EQ::versions::ConvertClientVersionBitToClientVersion
 		return ClientVersion::RoF2;
 	case ((uint32)1 << (static_cast<unsigned int>(ClientVersion::TOB) - 1)) :
 		return ClientVersion::TOB;
+	case ((uint32)1 << (static_cast<unsigned int>(ClientVersion::SoR) - 1)) :
+		return ClientVersion::SoR;
 	default:
 		return ClientVersion::Unknown;
 	}
@@ -190,6 +196,8 @@ const char* EQ::versions::MobVersionName(MobVersion mob_version)
 		return "RoF2";
 	case MobVersion::TOB:
 		return "TOB";
+	case MobVersion::SoR:
+		return "SoR";
 	case MobVersion::NPC:
 		return "NPC";
 	case MobVersion::NPCMerchant:
@@ -220,6 +228,8 @@ const char* EQ::versions::MobVersionName(MobVersion mob_version)
 		return "Offline RoF2";
 	case MobVersion::OfflineTOB:
 		return "Offline TOB";
+	case MobVersion::OfflineSoR:
+		return "Offline SoR";
 	default:
 		return "Invalid Version";
 	};
@@ -245,6 +255,8 @@ EQ::versions::ClientVersion EQ::versions::ConvertMobVersionToClientVersion(MobVe
 		return ClientVersion::RoF2;
 	case MobVersion::TOB:
 		return ClientVersion::TOB;
+	case MobVersion::SoR:
+		return ClientVersion::SoR;
 	default:
 		return ClientVersion::Unknown;
 	}
@@ -270,6 +282,8 @@ EQ::versions::MobVersion EQ::versions::ConvertClientVersionToMobVersion(ClientVe
 		return MobVersion::RoF2;
 	case ClientVersion::TOB:
 		return MobVersion::TOB;
+	case ClientVersion::SoR:
+		return MobVersion::SoR;
 	default:
 		return MobVersion::Unknown;
 	}
@@ -292,6 +306,8 @@ EQ::versions::MobVersion EQ::versions::ConvertPCMobVersionToOfflinePCMobVersion(
 		return MobVersion::OfflineRoF2;
 		case MobVersion::TOB:
 		return MobVersion::OfflineTOB;
+	case MobVersion::SoR:
+		return MobVersion::OfflineSoR;
 	default:
 		return MobVersion::Unknown;
 	}
@@ -314,6 +330,8 @@ EQ::versions::MobVersion EQ::versions::ConvertOfflinePCMobVersionToPCMobVersion(
 		return MobVersion::RoF2;
 	case MobVersion::OfflineTOB:
 		return MobVersion::TOB;
+	case MobVersion::OfflineSoR:
+		return MobVersion::SoR;
 	default:
 		return MobVersion::Unknown;
 	}
@@ -336,6 +354,8 @@ EQ::versions::ClientVersion EQ::versions::ConvertOfflinePCMobVersionToClientVers
 		return ClientVersion::RoF2;
 	case MobVersion::OfflineTOB:
 		return ClientVersion::TOB;
+	case MobVersion::OfflineSoR:
+		return ClientVersion::SoR;
 	default:
 		return ClientVersion::Unknown;
 	}
@@ -358,6 +378,8 @@ EQ::versions::MobVersion EQ::versions::ConvertClientVersionToOfflinePCMobVersion
 		return MobVersion::OfflineRoF2;
 	case ClientVersion::TOB:
 		return MobVersion::OfflineTOB;
+	case ClientVersion::SoR:
+		return MobVersion::OfflineSoR;
 	default:
 		return MobVersion::Unknown;
 	}

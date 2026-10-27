@@ -95,6 +95,8 @@ set(common_sources
 	patches/sod.cpp
 	patches/sof_limits.cpp
 	patches/sof.cpp
+	patches/sor_limits.cpp
+	patches/sor.cpp
 	patches/titanium_limits.cpp
 	patches/titanium.cpp
 	patches/tob.cpp
@@ -679,6 +681,10 @@ set(common_headers
 	patches/sof_ops.h
 	patches/sof_structs.h
 	patches/sof.h
+	patches/sor_limits.h
+	patches/sor_ops.h
+	patches/sor_structs.h
+	patches/sor.h
 	patches/ss_declare.h
 	patches/ss_define.h
 	patches/ss_register.h

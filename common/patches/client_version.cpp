@@ -32,6 +32,8 @@
 #include "common/patches/rof_limits.h"
 #include "common/patches/rof2.h"
 #include "common/patches/rof2_limits.h"
+#include "common/patches/sor.h"
+#include "common/patches/sor_limits.h"
 #include "common/patches/tob.h"
 #include "common/patches/tob_limits.h"
 
@@ -44,6 +46,10 @@ struct ClientComponents
 	explicit ClientComponents(Version version) : version(version)
 	{
 		switch (version) {
+		case Version::SoR:
+			buffComponent = std::make_unique<SoR::BuffComponent>(SoR::spells::LONG_BUFFS, SoR::spells::SHORT_BUFFS);
+			messageComponent = std::make_unique<SoR::MessageComponent>();
+			break;
 		case Version::TOB:
 			buffComponent = std::make_unique<TOB::BuffComponent>(TOB::spells::LONG_BUFFS, TOB::spells::SHORT_BUFFS);
 			messageComponent = std::make_unique<TOB::MessageComponent>();
@@ -94,6 +100,7 @@ static const std::array<ClientComponents, EQ::versions::ClientVersionCount> s_pa
 		ClientComponents(Version::RoF),
 		ClientComponents(Version::RoF2),
 		ClientComponents(Version::TOB),
+		ClientComponents(Version::SoR),
 	}
 };
 

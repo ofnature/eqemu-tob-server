@@ -119,6 +119,15 @@ static const EQ::constants::LookupEntry constants_static_lookup_entries[EQ::vers
 		TOB::constants::CHARACTER_CREATION_LIMIT,
 		TOB::constants::SAY_LINK_BODY_SIZE,
 		TOB::constants::MAX_BAZAAR_TRADERS
+	),
+	/*[ClientVersion::SoR] =*/
+	EQ::constants::LookupEntry(
+		SoR::constants::EXPANSION,
+		SoR::constants::EXPANSION_BIT,
+		SoR::constants::EXPANSIONS_MASK,
+		SoR::constants::CHARACTER_CREATION_LIMIT,
+		SoR::constants::SAY_LINK_BODY_SIZE,
+		SoR::constants::MAX_BAZAAR_TRADERS
 	)
 };
 
@@ -387,6 +396,33 @@ static const EQ::inventory::LookupEntry inventory_static_lookup_entries[EQ::vers
 	),
 	/*[MobVersion::TOB] =*/
 	//TOBTodo: These need to be set to the latest values not just use RoF2
+	EQ::inventory::LookupEntry(
+		EQ::inventory::LookupEntry::InventoryTypeSize_Struct(
+			EQ::invtype::POSSESSIONS_SIZE,	RoF2::invtype::BANK_SIZE,					RoF2::invtype::SHARED_BANK_SIZE,
+			RoF2::invtype::TRADE_SIZE,			RoF2::invtype::WORLD_SIZE,					RoF2::invtype::LIMBO_SIZE,
+			RoF2::invtype::TRIBUTE_SIZE,		RoF2::invtype::TROPHY_TRIBUTE_SIZE,			RoF2::invtype::GUILD_TRIBUTE_SIZE,
+			RoF2::invtype::MERCHANT_SIZE,		RoF2::invtype::DELETED_SIZE,				RoF2::invtype::CORPSE_SIZE,
+			RoF2::invtype::BAZAAR_SIZE,			RoF2::invtype::INSPECT_SIZE,				RoF2::invtype::REAL_ESTATE_SIZE,
+			RoF2::invtype::VIEW_MOD_PC_SIZE,	RoF2::invtype::VIEW_MOD_BANK_SIZE,			RoF2::invtype::VIEW_MOD_SHARED_BANK_SIZE,
+			RoF2::invtype::VIEW_MOD_LIMBO_SIZE,	RoF2::invtype::ALT_STORAGE_SIZE,			RoF2::invtype::ARCHIVED_SIZE,
+			RoF2::invtype::MAIL_SIZE,			RoF2::invtype::GUILD_TROPHY_TRIBUTE_SIZE,	RoF2::invtype::KRONO_SIZE,
+			RoF2::invtype::GUILD_BANK_MAIN_SIZE, RoF2::invtype::GUILD_BANK_DEPOSIT_SIZE, RoF2::invtype::OTHER_SIZE
+		),
+	
+		RoF2::invslot::EQUIPMENT_BITMASK,
+		RoF2::invslot::GENERAL_BITMASK,
+		RoF2::invslot::CURSOR_BITMASK,
+		RoF2::invslot::POSSESSIONS_BITMASK,
+		RoF2::invslot::CORPSE_BITMASK,
+		RoF2::invbag::SLOT_COUNT,
+		RoF2::invaug::SOCKET_COUNT,
+	
+		RoF2::inventory::AllowEmptyBagInBag,
+		RoF2::inventory::AllowClickCastFromBag,
+		RoF2::inventory::ConcatenateInvTypeLimbo,
+		RoF2::inventory::AllowOverLevelEquipment
+	),
+	/*[MobVersion::SoR] =*/
 	EQ::inventory::LookupEntry(
 		EQ::inventory::LookupEntry::InventoryTypeSize_Struct(
 			EQ::invtype::POSSESSIONS_SIZE,	RoF2::invtype::BANK_SIZE,					RoF2::invtype::SHARED_BANK_SIZE,
@@ -819,6 +855,34 @@ static const EQ::inventory::LookupEntry inventory_static_lookup_entries[EQ::vers
 		false,
 		false,
 		false
+	),
+	/*[MobVersion::OfflineSoR] =*/
+	EQ::inventory::LookupEntry(
+		EQ::inventory::LookupEntry::InventoryTypeSize_Struct(
+			RoF2::INULL,						RoF2::INULL,						RoF2::INULL,
+			RoF2::invtype::TRADE_SIZE,			RoF2::INULL,						RoF2::INULL,
+			RoF2::INULL,						RoF2::INULL,						RoF2::INULL,
+			RoF2::invtype::MERCHANT_SIZE,		RoF2::INULL,						RoF2::INULL,
+			RoF2::invtype::BAZAAR_SIZE,			RoF2::invtype::INSPECT_SIZE,		RoF2::INULL,
+			RoF2::invtype::VIEW_MOD_PC_SIZE,	RoF2::invtype::VIEW_MOD_BANK_SIZE,	RoF2::invtype::VIEW_MOD_SHARED_BANK_SIZE,
+			RoF2::invtype::VIEW_MOD_LIMBO_SIZE,	RoF2::INULL,						RoF2::INULL,
+			RoF2::INULL,						RoF2::INULL,						RoF2::INULL,
+			RoF2::INULL,						RoF2::INULL,						RoF2::INULL
+		),
+
+		RoF2::INULL,
+		RoF2::INULL,
+		RoF2::INULL,
+		RoF2::INULL,
+		RoF2::INULL,
+		RoF2::invbag::SLOT_COUNT,
+		RoF2::invaug::SOCKET_COUNT,
+
+
+		false,
+		false,
+		false,
+		false
 	)
 };
 
@@ -1071,6 +1135,10 @@ static const EQ::behavior::LookupEntry behavior_static_lookup_entries[EQ::versio
 	EQ::behavior::LookupEntry(
 		RoF2::behavior::CoinHasWeight
 	),
+	/*[MobVersion::SoR] =*/
+	EQ::behavior::LookupEntry(
+		RoF2::behavior::CoinHasWeight
+	),
 	/*[MobVersion::NPC] =*/
 	EQ::behavior::LookupEntry(
 		EQ::behavior::CoinHasWeight
@@ -1129,6 +1197,10 @@ static const EQ::behavior::LookupEntry behavior_static_lookup_entries[EQ::versio
 	),
 	/*[MobVersion::OfflineTOB] =*/
 	//TOBTodo: We need this value set properly
+	EQ::behavior::LookupEntry(
+		RoF2::behavior::CoinHasWeight
+	),
+	/*[MobVersion::OfflineSoR] =*/
 	EQ::behavior::LookupEntry(
 		RoF2::behavior::CoinHasWeight
 	)
@@ -1297,6 +1369,19 @@ static const EQ::spells::LookupEntry spells_static_lookup_entries[EQ::versions::
 		TOB::spells::NPC_BUFFS,
 		TOB::spells::PET_BUFFS,
 		TOB::spells::MERC_BUFFS
+	),
+	/*[ClientVersion::SoR] =*/
+	EQ::spells::LookupEntry(
+		SoR::spells::SPELL_ID_MAX,
+		SoR::spells::SPELLBOOK_SIZE,
+		UF::spells::SPELL_GEM_COUNT, // client translators are setup to allow the max value a client supports..however, the top 4 indices are not valid in this case
+		SoR::spells::LONG_BUFFS,
+		SoR::spells::SHORT_BUFFS,
+		SoR::spells::DISC_BUFFS,
+		SoR::spells::TOTAL_BUFFS,
+		SoR::spells::NPC_BUFFS,
+		SoR::spells::PET_BUFFS,
+		SoR::spells::MERC_BUFFS
 	)
 };
 
