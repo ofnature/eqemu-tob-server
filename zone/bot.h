@@ -275,7 +275,7 @@ public:
 		bool iBuffTic = false, eSpecialAttacks special = eSpecialAttacks::None) override;
 
 	Group* GetGroupByLeaderName() const { return entity_list.GetGroupByLeaderName(GetName()); }
-	void OnRemoveFromGroup(Group* prev_group) override;
+	void OnRemoveFromGroup() override;
 
 	// Common, but informal "interfaces" with Client object
 	inline bool IsInAGuild() const { return (_guildId != GUILD_NONE && _guildId != 0); }

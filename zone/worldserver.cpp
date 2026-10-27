@@ -306,7 +306,7 @@ void WorldServer::HandleMessage(uint16 opcode, const EQ::Net::Packet &p)
 				}
 
 				r->ForEachLocalMember([&](const auto& m) {
-					if (m.kind != RaidMemberBot && m.member->IsClient()) {
+					if (m.kind != RaidMemberKind::RaidMemberBot && m.member->IsClient()) {
 						m.member->CastToClient()->QueuePacket(outapp);
 					}
 				});
@@ -1243,8 +1243,8 @@ void WorldServer::HandleMessage(uint16 opcode, const EQ::Net::Packet &p)
 		if (c) {
 			auto outapp = new EQApplicationPacket(OP_RaidUpdate, sizeof(RaidGeneral_Struct));
 			auto raid_command = (RaidGeneral_Struct*)outapp->pBuffer;
-			strn0cpy(raid_command->leader_name, ip->invitee_name, sizeof(raid_command->leader_name));
-			strn0cpy(raid_command->player_name, ip->inviter_name, sizeof(raid_command->player_name));
+			strn0cpy(raid_command->leader_name, ip->inviter_name, sizeof(raid_command->leader_name));
+			strn0cpy(raid_command->player_name, ip->invitee_name, sizeof(raid_command->player_name));
 			raid_command->parameter = 0;
 			raid_command->action = 20;
 			c->QueuePacket(outapp);
@@ -1267,7 +1267,7 @@ void WorldServer::HandleMessage(uint16 opcode, const EQ::Net::Packet &p)
 
 			if (r) {
 				r->ForEachLocalMember([&](const auto& m) {
-					if (m.kind != RaidMemberBot && m.member->IsClient()) {
+					if (m.kind != RaidMemberKind::RaidMemberBot && m.member->IsClient()) {
 						Client* c = m.member->CastToClient();
 						if (strcmp(rmsg->from, c->GetName()) != 0 && c->GetFilter(FilterGroupChat) != 0) {
 							c->ChannelMessageSend(rmsg->from, c->GetName(), ChatChannel_Raid, rmsg->language, rmsg->lang_skill, rmsg->message);

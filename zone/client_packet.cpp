@@ -5507,13 +5507,13 @@ void Client::Handle_OP_DelegateAbility(const EQApplicationPacket *app)
 
 	if (!g) return;
 
-	uint8 action;
+	GroupActionType action;
 	switch (das->DelegateAbility)
 	{
-	case 0: action = GroupActionDelegateMainAssist; break;
-	case 1: action = GroupActionDelegateMarkNPC;    break;
-	case 2: action = GroupActionDelegateMainTank;   break;
-	case 3: action = GroupActionDelegatePuller;     break;
+	case 0: action = GroupActionType::GroupActionDelegateMainAssist; break;
+	case 1: action = GroupActionType::GroupActionDelegateMarkNPC;    break;
+	case 2: action = GroupActionType::GroupActionDelegateMainTank;   break;
+	case 3: action = GroupActionType::GroupActionDelegatePuller;     break;
 	default: return;
 	}
 
@@ -7166,13 +7166,13 @@ void Client::Handle_OP_GroupRoles(const EQApplicationPacket *app)
 		return;
 	}
 
-	uint8 action;
+	GroupActionType action;
 	switch (grs->RoleNumber) {
-		case 1: action = grs->Toggle ? GroupActionDelegateMainTank      : GroupActionUndelegateMainTank;      break;
-		case 2: action = grs->Toggle ? GroupActionDelegateMainAssist    : GroupActionUndelegateMainAssist;    break;
-		case 3: action = grs->Toggle ? GroupActionDelegatePuller        : GroupActionUndelegatePuller;        break;
-		case 4: action = grs->Toggle ? GroupActionDelegateMarkNPC       : GroupActionUndelegateMarkNPC;       break;
-		case 5: action = grs->Toggle ? GroupActionDelegateMasterLooter  : GroupActionUndelegateMasterLooter;  break;
+		case 1: action = grs->Toggle ? GroupActionType::GroupActionDelegateMainTank      : GroupActionType::GroupActionUndelegateMainTank;      break;
+		case 2: action = grs->Toggle ? GroupActionType::GroupActionDelegateMainAssist    : GroupActionType::GroupActionUndelegateMainAssist;    break;
+		case 3: action = grs->Toggle ? GroupActionType::GroupActionDelegatePuller        : GroupActionType::GroupActionUndelegatePuller;        break;
+		case 4: action = grs->Toggle ? GroupActionType::GroupActionDelegateMarkNPC       : GroupActionType::GroupActionUndelegateMarkNPC;       break;
+		case 5: action = grs->Toggle ? GroupActionType::GroupActionDelegateMasterLooter  : GroupActionType::GroupActionUndelegateMasterLooter;  break;
 		default: return;
 	}
 
@@ -11987,10 +11987,12 @@ void Client::Handle_OP_RaidCommand(const EQApplicationPacket* app)
 		break;
 	}
 	case RaidCommandRemoveGroupLeader:
-		// Retired -- confirmed a no-op on live too (see
-		// RaidLeadershipRemoveGroupLeader's comment in world/raid_state.cpp).
-		// No request is sent; the server performs no action for this command.
+	{
+		Raid* raid = entity_list.GetRaidByClient(this);
+		if (raid)
+			raid->RequestRemoveGroupLeader(this, raid_command_packet->leader_name);
 		break;
+	}
 	case RaidCommandRaidLock:
 	case RaidCommandRaidUnlock:
 	{
@@ -12077,6 +12079,9 @@ void Client::Handle_OP_RaidCommand(const EQApplicationPacket* app)
 		raid->RequestSetGroupOnInvite(this, raid_command_packet->parameter != 0);
 		break;
 	}
+	case RaidCommandInviteFail:
+		// The invitee's client declined or couldn't take the invite; it already told its own player.
+		break;
 	default: {
 		Message(Chat::Red, "Raid command (%d) NYI", raid_command_packet->action);
 		break;
@@ -15692,13 +15697,13 @@ void Client::Handle_OP_RaidDelegateAbility(const EQApplicationPacket *app)
 
 	switch (das->DelegateAbility) {
 		case RaidDelegateMainAssist:
-			r->RequestDelegateRole(this, RaidRoleDelegateAssist, das->Name);
+			r->RequestDelegateRole(this, RaidActionType::RaidRoleDelegateAssist, das->Name);
 			break;
 		case RaidDelegateMainMarker:
-			r->RequestDelegateRole(this, RaidRoleDelegateMark, das->Name);
+			r->RequestDelegateRole(this, RaidActionType::RaidRoleDelegateMark, das->Name);
 			break;
 		case RaidDelegateMasterLooter:
-			r->RequestDelegateRole(this, RaidRoleDelegateMasterLooter, das->Name);
+			r->RequestDelegateRole(this, RaidActionType::RaidRoleDelegateMasterLooter, das->Name);
 			break;
 		default:
 			LogDebug("RaidDelegateAbility default case");

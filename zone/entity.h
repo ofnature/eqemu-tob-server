@@ -197,7 +197,7 @@ public:
 	void SetRaid(Mob* mob, Raid* raid);
 	// Same pointer swap as SetGroup/SetRaid, but for a member whose
 	// membership isn't changing -- only becoming (or ceasing to be)
-	// locally resolvable in this zone. See Mob::SetZoneWithGroup's comment.
+	// locally resolvable in this zone. See Mob::SetGroupZoned's comment.
 	void SetGroupZoned(Mob* mob, Group* group);
 	void SetRaidZoned(Mob* mob, Raid* raid);
 	Group *GetGroupByID(uint32 id);

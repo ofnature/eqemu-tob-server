@@ -2674,7 +2674,7 @@ bool NPC::Death(Mob* killer_mob, int64 damage, int32 spell, EQ::skills::SkillTyp
 
 			/* Send the EVENT_KILLED_MERIT event for all raid members */
 			killer_raid->ForEachLocalMember([&](const auto& m) {
-				if (m.kind != RaidMemberBot && m.member->IsClient()) {
+				if (m.kind != RaidMemberKind::RaidMemberBot && m.member->IsClient()) {
 					Client* c = m.member->CastToClient();
 					if (RuleB(NPC, EnableMeritBasedFaction)) {
 						c->SetFactionLevel(
@@ -2848,7 +2848,7 @@ bool NPC::Death(Mob* killer_mob, int64 damage, int32 spell, EQ::skills::SkillTyp
 				uint8 slot_id = 0;
 
 				r->ForEachMember([&](const auto& m) {
-					if (m.kind != RaidMemberBot) {
+					if (m.kind != RaidMemberKind::RaidMemberBot) {
 						switch (r->GetLootType()) {
 							case RaidLootType::LeaderOnly:
 								if (m.member && (m.roles & RaidBitmaskLeader)) {

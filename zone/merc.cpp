@@ -41,7 +41,7 @@ extern volatile bool is_zone_loaded;
 #endif
 
 Merc::Merc(const NPCType* d, float x, float y, float z, float heading)
-: Mixed<NPC, HasGroup>(d, nullptr, glm::vec4(x, y, z, heading), GravityBehavior::Water, false), endupkeep_timer(1000), rest_timer(1), confidence_timer(6000), check_target_timer(2000)
+: Mixed<NPC, ::HasGroup>(d, nullptr, glm::vec4(x, y, z, heading), GravityBehavior::Water, false), endupkeep_timer(1000), rest_timer(1), confidence_timer(6000), check_target_timer(2000)
 {
 	base_hp = d->max_hp;
 	base_mana = d->Mana;
@@ -5379,6 +5379,7 @@ void Merc::Depop()
 	entity_list.RemoveFromHateLists(this);
 
 	if (const Group* group = GetGroup()) {
+		const Client* owner = GetMercenaryOwner();
 		// if the merc somehow became leader, not setting this will send disband all
 		group->RequestDisband(
 			owner != nullptr ? owner->CharacterID() : 0,

@@ -2390,7 +2390,7 @@ protected:
 	void OnAddToGroup() override;
 	void OnRemoveFromGroup() override;
 	void OnAddToRaid() override;
-	void OnRemoveFromRaid(Raid* prev_raid) override;
+	void OnRemoveFromRaid() override;
 	void OnZonedInWithGroup() override;
 	void OnZonedOutWithGroup() override;
 	void OnZonedInWithRaid() override;

@@ -48,7 +48,7 @@ public:
 	void	RequestDisband(uint32 requestor_character_id, const std::string& requestor_name, const std::string& target_name = "") const;
 	static void RequestAddMember(const Client* requestor, const Mob* target);
 	static void RequestFollow(const Client* accepter, const char* inviter_name);
-	void	RequestRoleChange(uint32 requestor_character_id, const std::string& requestor_name, uint8 action, const std::string& target_name) const;
+	void	RequestRoleChange(uint32 requestor_character_id, const std::string& requestor_name, GroupActionType action, const std::string& target_name) const;
 	void	RequestMakeLeader(uint32 requestor_character_id, const std::string& requestor_name, const std::string& target_name) const;
 	void	RequestMakeLeader(const Mob* target) const;
 	void	RequestMentor(uint32 requestor_character_id, bool clear, const std::string& name, int percent) const;
@@ -56,7 +56,7 @@ public:
 	static void RequestCancelInvite(const GroupCancel_Struct* cancel);
 	// Explicit desync recovery (/refreshgroup) -- asks world to broadcast a
 	// real GroupUpdateType::Full to every zone with a member present. See
-	// ServerOP_GroupAction's GroupActionRefresh comment in common/servertalk.h.
+	// ServerOP_GroupAction's GroupActionType::GroupActionRefresh comment in common/servertalk.h.
 	void	RequestRefresh() const;
 
 	[[nodiscard]] bool IsGroupMember(const Mob* c) const;

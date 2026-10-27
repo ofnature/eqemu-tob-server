@@ -71,7 +71,7 @@ static void SendRaidAction(const Client* requestor, T&& payload, uint32 raid_id,
 		payload.header.requestor_character_id = requestor->CharacterID();
 		strn0cpy(payload.header.requestor_name, requestor->GetCleanName(), sizeof(payload.header.requestor_name));
 
-		payload.header.action = static_cast<uint8>(action);
+		payload.header.action = action;
 		payload.header.zoneid = zone->GetZoneID();
 		payload.header.instance_id = zone->GetInstanceID();
 
@@ -111,34 +111,39 @@ static ServerRaidActionTargetValue_Struct ActionPayload(const std::string& targe
 
 void Raid::RequestLock(const Client* requestor) const
 {
-	RequestAction(requestor, ActionPayload(), RaidLeadershipLock);
+	RequestAction(requestor, ActionPayload(), RaidActionType::RaidLeadershipLock);
 }
 
 void Raid::RequestUnlock(const Client* requestor) const
 {
-	RequestAction(requestor, ActionPayload(), RaidLeadershipUnlock);
+	RequestAction(requestor, ActionPayload(), RaidActionType::RaidLeadershipUnlock);
 }
 
 void Raid::RequestSetLootType(const Client* requestor, uint32 loot_type) const
 {
-	RequestAction(requestor, ActionPayload(loot_type), RaidLeadershipSetLootType);
+	RequestAction(requestor, ActionPayload(loot_type), RaidActionType::RaidLeadershipSetLootType);
 }
 
 void Raid::RequestSetLooter(const Client* requestor, const std::string& target_name, bool adding) const
 {
-	RequestAction(requestor, ActionPayload(target_name), adding ? RaidLeadershipAddLooter : RaidLeadershipRemoveLooter);
+	RequestAction(requestor, ActionPayload(target_name), adding ? RaidActionType::RaidLeadershipAddLooter : RaidActionType::RaidLeadershipRemoveLooter);
 }
 
 void Raid::RequestMakeLeader(const Client* requestor, const std::string& target_name) const
 {
-	RequestAction(requestor, ActionPayload(target_name), RaidLeadershipMakeLeader);
+	RequestAction(requestor, ActionPayload(target_name), RaidActionType::RaidLeadershipMakeLeader);
+}
+
+void Raid::RequestRemoveGroupLeader(const Client* requestor, const std::string& target_name) const
+{
+	RequestAction(requestor, ActionPayload(target_name), RaidActionType::RaidLeadershipRemoveGroupLeader);
 }
 
 void Raid::RequestSetMotd(const Client* requestor, const std::string& new_motd) const
 {
 	ServerRaidActionMotd_Struct payload{};
 	strn0cpy(payload.motd, new_motd.c_str(), sizeof(payload.motd));
-	RequestAction(requestor, payload, RaidRoleSetMotd);
+	RequestAction(requestor, payload, RaidActionType::RaidRoleSetMotd);
 }
 
 void Raid::RequestSetNote(const Client* requestor, const std::string& target_name, const std::string& note) const
@@ -146,12 +151,12 @@ void Raid::RequestSetNote(const Client* requestor, const std::string& target_nam
 	ServerRaidActionNote_Struct payload{};
 	strn0cpy(payload.target_name, target_name.c_str(), sizeof(payload.target_name));
 	strn0cpy(payload.note, note.c_str(), sizeof(payload.note));
-	RequestAction(requestor, payload, RaidRoleSetNote);
+	RequestAction(requestor, payload, RaidActionType::RaidRoleSetNote);
 }
 
 void Raid::RequestSetGroupOnInvite(const Client* requestor, bool enabled) const
 {
-	RequestAction(requestor, ActionPayload(enabled ? 1u : 0u), RaidLeadershipSetGroupOnInvite);
+	RequestAction(requestor, ActionPayload(enabled ? 1u : 0u), RaidActionType::RaidLeadershipSetGroupOnInvite);
 }
 
 void Raid::RequestDelegateRole(const Client* requestor, RaidActionType action, const std::string& target_name) const
@@ -161,22 +166,22 @@ void Raid::RequestDelegateRole(const Client* requestor, RaidActionType action, c
 
 void Raid::RequestRemoveMember(const Client* requestor, const std::string& target_name) const
 {
-	RequestAction(requestor, ActionPayload(target_name), RaidActionRemoveMember);
+	RequestAction(requestor, ActionPayload(target_name), RaidActionType::RaidActionRemoveMember);
 }
 
 void Raid::RequestMoveGroup(const Client* requestor, const std::string& target_name, uint32 dest_group_number) const
 {
-	RequestAction(requestor, ActionPayload(target_name, dest_group_number), RaidActionMoveGroup);
+	RequestAction(requestor, ActionPayload(target_name, dest_group_number), RaidActionType::RaidActionMoveGroup);
 }
 
 void Raid::RequestRaidAAs() const
 {
-	RequestAction(GetLeader(), ActionPayload(), RaidLeadershipUpdateAA);
+	RequestAction(GetLeader(), ActionPayload(), RaidActionType::RaidLeadershipUpdateAA);
 }
 
 void Raid::RequestUpdateLevel(const Client* requestor, const std::string& target_name, int level) const
 {
-	RequestAction(requestor, ActionPayload(target_name, level), RaidLeadershipUpdateLevel);
+	RequestAction(requestor, ActionPayload(target_name, level), RaidActionType::RaidLeadershipUpdateLevel);
 }
 
 // The invitee is typed by name, not targeted, so unlike every other raid
@@ -211,12 +216,12 @@ static ServerRaidActionInvite_Struct InviteActionPayload(const std::string& targ
 
 void Raid::RequestInvite(const Client* inviter, const std::string& invitee_name)
 {
-	SendRaidAction(inviter, InviteActionPayload(invitee_name), 0, RaidActionInvite);
+	SendRaidAction(inviter, InviteActionPayload(invitee_name), 0, RaidActionType::RaidActionInvite);
 }
 
 void Raid::RequestFollow(const Client* accepter, const std::string& inviter_name)
 {
-	SendRaidAction(accepter, ActionPayload(inviter_name), 0, RaidActionAcceptInvite);
+	SendRaidAction(accepter, ActionPayload(inviter_name), 0, RaidActionType::RaidActionAcceptInvite);
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
@@ -228,6 +233,7 @@ void Raid::ApplyFullFromWorld(const ServerRaidFull_Struct &rs)
 	leader_name = rs.leader_name;
 	SetLeader(entity_list.GetClientByName(leader_name.c_str()));
 
+	const bool was_locked = locked;
 	locked    = rs.locked;
 	loot_type = rs.loot_type;
 	motd      = rs.motd;
@@ -254,6 +260,7 @@ void Raid::ApplyFullFromWorld(const ServerRaidFull_Struct &rs)
 			previous_names.push_back(m.name);
 
 	std::vector<std::string> incoming_names;
+	std::vector<Client*> newly_resolved;
 
 	for (uint8 i = 0; i < rs.member_count && i < MAX_RAID_MEMBERS; ++i) {
 		const auto &mf = rs.members[i];
@@ -291,13 +298,8 @@ void Raid::ApplyFullFromWorld(const ServerRaidFull_Struct &rs)
 		// exactly-once-per-zone-entry signal (MemberZoned nulls slot.member
 		// back out on zone-out, so the next zone-in sees this transition
 		// again) -- no p_pending_raid_sync flag needed.
-		if (previously_resolved == nullptr && slot.member != nullptr && slot.member->IsClient()) {
-			Client* c = slot.member->CastToClient();
-			SendBulkRaidInfoTo(c);
-
-			if (RuleB(Bots, Enabled))
-				c->SpawnRaidBotsOnConnect(this);
-		}
+		if (previously_resolved == nullptr && slot.member != nullptr && slot.member->IsClient())
+			newly_resolved.push_back(slot.member->CastToClient());
 	}
 
 	// Anyone who was here before but isn't in the new roster at all
@@ -308,15 +310,27 @@ void Raid::ApplyFullFromWorld(const ServerRaidFull_Struct &rs)
 		});
 
 		if (!still_present) {
-			if (Mob* m = entity_list.GetMob(name))
+			if (Mob* m = entity_list.GetMob(name.c_str()))
 				entity_list.SetRaid(m, nullptr);
 		}
 	}
 
-	if (locked)
-		SendRaidLock();
-	else
-		SendRaidUnlock();
+	// Sent only once the whole roster is attached, so the first member
+	// listed sees everyone after them too.
+	for (Client* c : newly_resolved) {
+		SendBulkRaidInfoTo(c);
+
+		if (RuleB(Bots, Enabled))
+			c->SpawnRaidBotsOnConnect(this);
+	}
+
+	// The client announces every lock/unlock, so only broadcast a real change.
+	if (!previous_names.empty() && locked != was_locked) {
+		if (locked)
+			SendRaidLock();
+		else
+			SendRaidUnlock();
+	}
 }
 
 void Raid::ApplyMemberJoinedFromWorld(const ServerRaidMemberJoined_Struct &msg)
@@ -389,7 +403,7 @@ void Raid::ApplyMemberLeftFromWorld(const ServerRaidMemberLeft_Struct &msg)
 			m.roles = 0;
 			m.main_marker = 0;
 			m.main_assister = 0;
-			m.kind = RaidMemberPlayer;
+			m.kind = RaidMemberKind::RaidMemberPlayer;
 			m.note.clear();
 			break;
 		}
@@ -400,6 +414,7 @@ void Raid::ApplyMemberFieldsChangedFromWorld(const ServerRaidMemberFieldsChanged
 {
 	for (auto &m : members) {
 		if (Strings::EqualFold(m.name, msg.member.member_name)) {
+			const bool note_changed = m.note != msg.member.note;
 			m.class_           = msg.member._class;
 			m.level            = msg.member.level;
 			m.note             = msg.member.note;
@@ -410,8 +425,10 @@ void Raid::ApplyMemberFieldsChangedFromWorld(const ServerRaidMemberFieldsChanged
 
 			AttachLocalMember(m);
 
-			SendRaidAddAll(m.name.c_str());
+			// Not SendRaidAddAll: the client adds a new row for every raidAdd.
 			SendClassLevelUpdateAll(m.name.c_str());
+			if (note_changed)
+				SendRaidNote(m);
 			break;
 		}
 	}
@@ -453,6 +470,10 @@ void Raid::ApplyGroupLeaderChangedFromWorld(const ServerRaidGroupLeaderChanged_S
 
 void Raid::ApplyStateChangedFromWorld(const ServerRaidStateChanged_Struct &msg)
 {
+	const bool was_locked = locked;
+	const bool motd_changed = motd != msg.motd;
+	const uint32 old_loot_type = loot_type;
+	const auto old_looter_names = looter_names;
 	locked    = msg.locked;
 	loot_type = msg.loot_type;
 	motd      = msg.motd;
@@ -468,14 +489,33 @@ void Raid::ApplyStateChangedFromWorld(const ServerRaidStateChanged_Struct &msg)
 
 	leadership_aa = msg.raid_aa;
 
-	if (locked)
-		SendRaidLock();
-	else
-		SendRaidUnlock();
+	// Live echoes loot type and looter changes to every member (sor-client/raid-live-capture.md).
+	if (loot_type != old_loot_type) {
+		SendRaidLooterChange(RaidCommandLootType2, leader_name, loot_type);
+		if (GetLeader() != nullptr)
+			SendRaidLooterChange(raidChangeLootType, leader_name, loot_type, GetLeader());
+	}
 
-	for (const auto &m : members)
-		if (m.member && m.member->IsClient())
-			SendRaidMOTD(m.member->CastToClient());
+	for (const auto &name : looter_names)
+		if (!name.empty() && std::ranges::find(old_looter_names, name) == old_looter_names.end())
+			SendRaidLooterChange(RaidCommandAddLooter2, name, 0);
+
+	for (const auto &name : old_looter_names)
+		if (!name.empty() && std::ranges::find(looter_names, name) == looter_names.end())
+			SendRaidLooterChange(RaidCommandRemoveLooter2, name, 0);
+
+	// The client announces lock/unlock and the MOTD, so only send real changes.
+	if (locked != was_locked) {
+		if (locked)
+			SendRaidLock();
+		else
+			SendRaidUnlock();
+	}
+
+	if (motd_changed)
+		for (const auto &m : members)
+			if (m.member && m.member->IsClient())
+				SendRaidMOTD(m.member->CastToClient());
 }
 
 void Raid::ApplyAAChangedFromWorld(const RaidLeadershipAA_Struct &new_leader_aa)
@@ -565,7 +605,7 @@ void Raid::MarkNPC(Client* requester, const Mob* target, uint32 number)
 	// Same permission rule ClearNPCMarks() enforces -- this was previously
 	// missing entirely (any raid member could mark, regardless of whether
 	// they'd actually been delegated the ability), which defeats the whole
-	// point of RaidRoleDelegateMark.
+	// point of RaidActionType::RaidRoleDelegateMark.
 	const bool allowed = IsLeader(requester->GetCleanName()) || IsMarker(requester->GetCleanName());
 	if (!allowed) {
 		requester->Message(Chat::Red, "You have not been delegated the ability to mark NPCs.");
@@ -1046,9 +1086,10 @@ void Raid::SendBulkRaidInfoTo(Client *c) const
 			SendBulkRaid(c);
 			SendRaidMOTD(c);
 			SendMakeLeaderPacketTo(leader_name.c_str(), c);
-			if (IsLocked())
-				SendRaidLockTo(c);
 		}
+
+		if (IsLocked())
+			SendRaidLockTo(c);
 
 		// technically this is in the bulk packet, but it's not reversed. gap is probably acceptable
 		SendLeadershipAAUpdate();
@@ -1103,6 +1144,22 @@ void Raid::SendRaidLock() const
 	strn0cpy(rg->leader_name, leader_name.c_str(), 64);
 	strn0cpy(rg->player_name, leader_name.c_str(), 64);
 	QueueClients(outapp);
+	safe_delete(outapp);
+}
+
+void Raid::SendRaidLooterChange(uint32 action, const std::string& target, uint32 parameter, Client* to) const
+{
+	auto outapp = new EQApplicationPacket(OP_RaidUpdate, sizeof(RaidGeneral_Struct));
+	const auto rg = reinterpret_cast<RaidGeneral_Struct*>(outapp->pBuffer);
+	rg->action = action;
+	strn0cpy(rg->player_name, leader_name.c_str(), sizeof(rg->player_name));
+	rg->unknown1 = GetID();
+	strn0cpy(rg->leader_name, target.c_str(), sizeof(rg->leader_name));
+	rg->parameter = parameter;
+	if (to != nullptr)
+		to->QueuePacket(outapp);
+	else
+		QueueClients(outapp);
 	safe_delete(outapp);
 }
 
@@ -1223,10 +1280,10 @@ void Raid::AttachLocalMember(RaidMember &m, bool is_new_member)
 
 		if (c != nullptr) {
 			m.member = c;
-			m.kind = RaidMemberPlayer;
+			m.kind = RaidMemberKind::RaidMemberPlayer;
 		} else if (RuleB(Bots, Enabled) && b != nullptr) {
 			m.member = b;
-			m.kind = RaidMemberBot;
+			m.kind = RaidMemberKind::RaidMemberBot;
 		} else {
 			m.member = nullptr;
 		}
@@ -1260,7 +1317,7 @@ void Raid::AttachLocalMember(RaidMember &m, bool is_new_member)
 
 	if (m.roles & RaidBitmaskLeader) {
 		if (m.InUse()) {
-			// World rejects RaidLeadershipMakeLeader when the target is a
+			// World rejects RaidActionType::RaidLeadershipMakeLeader when the target is a
 			// bot, so m.member here should always be a Client in practice --
 			// still guard rather than assume, since this also runs during
 			// cold-start application of world data.
@@ -1341,7 +1398,7 @@ bool Raid::AnyMemberHasDzLockout(const std::string& expedition, const std::strin
 {
 	std::vector<std::string> names;
 	for (const auto& mbr : members) {
-		if (mbr.kind != RaidMemberBot) {
+		if (mbr.kind != RaidMemberKind::RaidMemberBot) {
 			if (mbr.member == nullptr && mbr.InUse()) {
 				names.emplace_back(mbr.name); // out of zone member
 			} else if (mbr.member != nullptr && mbr.member->HasDzLockout(expedition, event)) {
@@ -1380,24 +1437,27 @@ void Raid::RaidMessage(const char* msg, const char* from, uint8 language, uint8 
 	}
 }
 
+void Raid::SendRaidNote(const RaidMember& m) const
+{
+	auto outapp = new EQApplicationPacket(OP_RaidUpdate, sizeof(RaidNote_Struct));
+	const auto data = reinterpret_cast<RaidNote_Struct*>(outapp->pBuffer);
+
+	data->general.action = raidSetNote;
+	data->general.parameter = 0;
+	data->general.unknown1 = 0;
+	strn0cpy(data->general.leader_name, m.name.c_str(), sizeof(data->general.leader_name));
+	strn0cpy(data->general.player_name, GetLeaderName().c_str(), sizeof(data->general.player_name));
+	strn0cpy(data->note, m.note.c_str(), sizeof(data->note));
+
+	QueueClients(outapp);
+	safe_delete(outapp);
+}
+
 void Raid::SendRaidNotes() const
 {
-	for (const auto& c : members) {
-		if (!c.note.empty()) {
-			auto outapp = new EQApplicationPacket(OP_RaidUpdate, sizeof(RaidNote_Struct));
-			const auto data = reinterpret_cast<RaidNote_Struct*>(outapp->pBuffer);
-
-			data->general.action = raidSetNote;
-			data->general.parameter = 0;
-			data->general.unknown1 = 0;
-			strn0cpy(data->general.leader_name, c.name.c_str(), sizeof(data->general.leader_name));
-			strn0cpy(data->general.player_name, GetLeaderName().c_str(), GetLeaderName().length());
-			strn0cpy(data->note, c.note.c_str(), sizeof(data->note));
-
-			QueueClients(outapp);
-			safe_delete(outapp);
-		}
-	}
+	for (const auto& c : members)
+		if (!c.note.empty())
+			SendRaidNote(c);
 }
 
 void Raid::UpdateRaidXTargets() const

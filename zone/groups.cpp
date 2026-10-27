@@ -345,7 +345,7 @@ void Group::BalanceHP(int32 penalty, float range, const Mob* caster, int32 limit
 		dmgtaken += dmgtaken * penalty / 100;
 		dmgtaken /= static_cast<int64>(membersInRange.size());
 		for (const auto member : membersInRange) {
-			member->SetHP(std::max(member->GetMaxHP() - dmgtaken, 1L));
+			member->SetHP(std::max<int64>(member->GetMaxHP() - dmgtaken, 1));
 			member->SendHPUpdate();
 		}
 	}
@@ -379,7 +379,7 @@ void Group::BalanceMana(int32 penalty, float range, const Mob* caster, int32 lim
 			manataken = limit;
 
 		for (const auto member : membersInRange) {
-			member->SetMana(std::max(member->GetMaxMana() - manataken, 1L));
+			member->SetMana(std::max<int64>(member->GetMaxMana() - manataken, 1));
 			if (member->IsClient())
 				member->CastToClient()->SendManaUpdate();
 		}
@@ -409,7 +409,7 @@ bool Group::IsMemberMerc(const std::string& name) const
 {
 	for (const auto& member : members)
 		if (Strings::EqualFold(member.name, name))
-			return member.kind == GroupMemberMerc;
+			return member.kind == GroupMemberKind::GroupMemberMerc;
 
 	return false;
 }
@@ -496,7 +496,7 @@ bool Group::AnyMemberHasDzLockout(const std::string& expedition, const std::stri
 template <typename T>
 static void SendGroupAction(uint32 requestor_character_id, const std::string& requestor_name, T&& payload, uint32 gid, GroupActionType action)
 {
-	payload.header.action = static_cast<uint8>(action);
+	payload.header.action = action;
 	payload.header.zoneid = zone->GetZoneID();
 	payload.header.instance_id = zone->GetInstanceID();
 	payload.header.gid = gid;
@@ -521,7 +521,7 @@ void Group::RequestDisband(uint32 requestor_character_id, const std::string& req
 {
 	ServerGroupActionTarget_Struct payload{};
 	strn0cpy(payload.target_name, target_name.c_str(), sizeof(payload.target_name));
-	SendGroupAction(requestor_character_id, requestor_name, payload, GetID(), GroupActionDisband);
+	SendGroupAction(requestor_character_id, requestor_name, payload, GetID(), GroupActionType::GroupActionDisband);
 }
 
 void Group::RequestAddMember(const Client* requestor, const Mob* target)
@@ -538,7 +538,7 @@ void Group::RequestAddMember(const Client* requestor, const Mob* target)
 		strn0cpy(payload.target_owner_name, requestor->GetName(), sizeof(payload.target_owner_name));
 		payload.target_class = target->GetClass();
 		payload.target_level = target->GetLevel();
-		SendGroupAction(requestor->CharacterID(), requestor->GetName(), payload, 0, GroupActionAddMember);
+		SendGroupAction(requestor->CharacterID(), requestor->GetName(), payload, 0, GroupActionType::GroupActionAddMember);
 	}
 }
 
@@ -560,22 +560,22 @@ void Group::RequestFollow(const Client* accepter, const char* inviter_name)
 		payload.accepter_class = accepter->GetClass();
 		payload.accepter_level = accepter->GetLevel();
 		accepter->GetGroupAAs(&payload.accepter_group_aa);
-		SendGroupAction(accepter->CharacterID(), accepter->GetName(), payload, 0, GroupActionFollow);
+		SendGroupAction(accepter->CharacterID(), accepter->GetName(), payload, 0, GroupActionType::GroupActionFollow);
 	}
 }
 
-void Group::RequestRoleChange(uint32 requestor_character_id, const std::string& requestor_name, uint8 action, const std::string& target_name) const
+void Group::RequestRoleChange(uint32 requestor_character_id, const std::string& requestor_name, GroupActionType action, const std::string& target_name) const
 {
 	ServerGroupActionTarget_Struct payload{};
 	strn0cpy(payload.target_name, target_name.c_str(), sizeof(payload.target_name));
-	SendGroupAction(requestor_character_id, requestor_name, payload, GetID(), static_cast<GroupActionType>(action));
+	SendGroupAction(requestor_character_id, requestor_name, payload, GetID(), action);
 }
 
 void Group::RequestMakeLeader(uint32 requestor_character_id, const std::string& requestor_name, const std::string& target_name) const
 {
 	ServerGroupActionTarget_Struct payload{};
 	strn0cpy(payload.target_name, target_name.c_str(), sizeof(payload.target_name));
-	SendGroupAction(requestor_character_id, requestor_name, payload, GetID(), GroupActionMakeLeader);
+	SendGroupAction(requestor_character_id, requestor_name, payload, GetID(), GroupActionType::GroupActionMakeLeader);
 }
 
 void Group::RequestMakeLeader(const Mob* target) const
@@ -590,7 +590,7 @@ void Group::RequestMentor(uint32 requestor_character_id, bool clear, const std::
 	payload.clear = clear;
 	strn0cpy(payload.mentoree_name, name.c_str(), sizeof(payload.mentoree_name));
 	payload.mentor_percent = percent;
-	SendGroupAction(requestor_character_id, "", payload, GetID(), GroupActionMentor);
+	SendGroupAction(requestor_character_id, "", payload, GetID(), GroupActionType::GroupActionMentor);
 }
 
 void Group::RequestInvite(const GroupInvite_Struct* invite)
@@ -612,7 +612,7 @@ void Group::RequestCancelInvite(const GroupCancel_Struct* cancel)
 void Group::RequestRefresh() const
 {
 	ServerGroupActionBasic_Struct payload{};
-	SendGroupAction(0, "", payload, GetID(), GroupActionRefresh);
+	SendGroupAction(0, "", payload, GetID(), GroupActionType::GroupActionRefresh);
 }
 
 void Group::RequestGroupAAs() const
@@ -627,7 +627,7 @@ void Group::RequestGroupAAs() const
 	}
 
 	ServerGroupActionBasic_Struct payload{};
-	SendGroupAction(requestor_character_id, requestor_name, payload, GetID(), GroupActionUpdateAA);
+	SendGroupAction(requestor_character_id, requestor_name, payload, GetID(), GroupActionType::GroupActionUpdateAA);
 }
 
 // TODO: This will get Group _and_ Raid responses
@@ -1077,7 +1077,7 @@ void Group::SendFullGroupUpdate(Client* client) const
 				auto& out = gu->members[i];
 				strn0cpy(out.name, entry->name.c_str(), sizeof(out.name));
 				strn0cpy(out.owner_name, entry->owner_name.c_str(), sizeof(out.owner_name));
-				out.type = entry->kind;
+				out.type = static_cast<uint16>(entry->kind);
 				out.level = entry->level;
 				out.is_tank = (entry->roles & GroupBitmaskMainTank) != 0 ? 1 : 0;
 				out.is_assist = (entry->roles & GroupBitmaskMainAssist) != 0 ? 1 : 0;

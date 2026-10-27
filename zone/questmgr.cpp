@@ -486,7 +486,7 @@ void QuestManager::ZoneRaid(const char *zone_name) {
 		} else {
 			auto client_raid = initiator->GetRaid();
 			client_raid->ForEachLocalMember([&](const auto& m) {
-				if (m.kind != RaidMemberBot && m.member->IsClient()) {
+				if (m.kind != RaidMemberKind::RaidMemberBot && m.member->IsClient()) {
 					m.member->CastToClient()->MoveZone(zone_name);
 				}
 			});
@@ -3613,7 +3613,7 @@ void QuestManager::AssignRaidToInstance(uint16 instance_id)
 		if (r) {
 			std::vector<uint32> character_ids;
 			r->ForEachMember([&](const auto& m) {
-				if (m.member && m.kind != RaidMemberBot && m.member->IsClient()) {
+				if (m.member && m.kind != RaidMemberKind::RaidMemberBot && m.member->IsClient()) {
 					character_ids.push_back(m.member->CastToClient()->CharacterID());
 				}
 				else {

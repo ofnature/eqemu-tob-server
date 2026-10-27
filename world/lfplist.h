@@ -19,6 +19,7 @@
 
 #include "common/eq_packet_structs.h"
 #include "common/linked_list.h"
+#include "common/party_state.h"
 #include "common/servertalk.h"
 #include "common/timer.h"
 

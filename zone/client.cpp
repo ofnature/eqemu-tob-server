@@ -78,7 +78,7 @@ extern volatile bool RunLoops;
 void UpdateWindowTitle(char* iNewTitle);
 
 // client constructor purely for testing / mocking
-Client::Client() : Mixed<Mob, HasRaid, HasGroup>(
+Client::Client() : Mixed<Mob, ::HasRaid, ::HasGroup>(
 	"No name", // in_name
 	"", // in_lastname
 	0, // in_cur_hp
@@ -382,7 +382,7 @@ Client::Client() : Mixed<Mob, HasRaid, HasGroup>(
 	AI_Init();
 }
 
-Client::Client(EQStreamInterface *ieqs) : Mixed<Mob, HasRaid, HasGroup>(
+Client::Client(EQStreamInterface *ieqs) : Mixed<Mob, ::HasRaid, ::HasGroup>(
 	"No name", // in_name
 	"", // in_lastname
 	0, // in_cur_hp
@@ -856,13 +856,17 @@ void Client::SendZoneInPackets()
 
 	SendAlternateAdvancementTimers();
 
-	outapp = new EQApplicationPacket(OP_RaidUpdate, sizeof(ZoneInSendName_Struct));
-	ZoneInSendName_Struct* zonesendname = (ZoneInSendName_Struct*)outapp->pBuffer;
-	strcpy(zonesendname->name, m_pp.name);
-	strcpy(zonesendname->name2, m_pp.name);
-	zonesendname->unknown0 = 0x0A;
-	QueuePacket(outapp);
-	safe_delete(outapp);
+	// "No raid" clears the client's raid window. World's raid snapshot can already have arrived by now; sending
+	// this after it would wipe the raid (the client says "Your raid was disbanded").
+	if (entity_list.GetRaidByClient(this) == nullptr) {
+		outapp = new EQApplicationPacket(OP_RaidUpdate, sizeof(ZoneInSendName_Struct));
+		ZoneInSendName_Struct* zonesendname = (ZoneInSendName_Struct*)outapp->pBuffer;
+		strcpy(zonesendname->name, m_pp.name);
+		strcpy(zonesendname->name2, m_pp.name);
+		zonesendname->unknown0 = 0x0A;
+		QueuePacket(outapp);
+		safe_delete(outapp);
+	}
 
 	if (IsInAGuild()) {
 		guild_mgr.UpdateDbMemberOnline(CharacterID(), true);
@@ -7615,7 +7619,7 @@ void Client::JoinRaidXTargets()
 {
 	if (m_raid != nullptr) {
 		if (!m_autohatermgr.empty()) {
-			r->MergeAutoHaters(m_autohatermgr);
+			m_raid->MergeAutoHaters(m_autohatermgr);
 			m_autohatermgr.clear();
 			RemoveAutoXTargets();
 		}
@@ -11199,7 +11203,7 @@ std::vector<Client *> Client::GetPartyMembers()
 	// raid
 	if (const auto raid = entity_list.GetRaidByClient(this)) {
 		raid->ForEachLocalMember([&](const auto& m) {
-			if (m.kind != RaidMemberBot && m.member->IsClient()) {
+			if (m.kind != RaidMemberKind::RaidMemberBot && m.member->IsClient()) {
 				clients_to_update.push_back(m.member->CastToClient());
 			}
 		});
@@ -12417,7 +12421,7 @@ std::vector<Mob*> Client::GetRaidOrGroupOrSelf(bool clients_only)
 
 	if (IsRaided()) {
 		GetRaid()->ForEachLocalMember([&](const auto& m) {
-			if (m.kind != RaidMemberBot || !clients_only) {
+			if (m.kind != RaidMemberKind::RaidMemberBot || !clients_only) {
 				v.emplace_back(m.member);
 			}
 		});
@@ -13079,7 +13083,7 @@ void Client::OnAddToRaid()
 	HasRaid::OnAddToRaid();
 }
 
-void Client::OnRemoveFromRaid(Raid* prev_raid)
+void Client::OnRemoveFromRaid()
 {
 	LeaveRaidXTargets();
 	HasRaid::OnRemoveFromRaid();

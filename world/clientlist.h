@@ -22,6 +22,7 @@
 #include "common/json/json.h"
 #include "common/linked_list.h"
 #include "common/net/console_server_connection.h"
+#include "common/party_state.h"
 #include "common/rulesys.h"
 #include "common/servertalk.h"
 #include "common/timer.h"

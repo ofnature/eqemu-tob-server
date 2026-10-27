@@ -515,6 +515,20 @@ class PartyBase : public PartyIDHolder
 public:
 	static constexpr uint8 MaxMembers = MAX_PARTY_MEMBERS;
 
+	template <typename Fn>
+	void ForEachMember(Fn &&fn) const
+	{
+		for (const Member& member : members) {
+			if (member.InUse()) {
+				if constexpr (std::is_invocable_r_v<bool, Fn, const Member&>) {
+					if (!fn(member)) return;
+				} else {
+					fn(member);
+				}
+			}
+		}
+	}
+
 protected:
 	std::array<Member, MAX_PARTY_MEMBERS> members{};
 	std::string leader_name;
@@ -574,19 +588,6 @@ protected:
 		}
 	}
 
-	template <typename Fn>
-	void ForEachMember(Fn &&fn) const
-	{
-		for (const Member& member : members) {
-			if (member.InUse()) {
-				if constexpr (std::is_invocable_r_v<bool, Fn, const Member&>) {
-					if (!fn(member)) return;
-				} else {
-					fn(member);
-				}
-			}
-		}
-	}
 };
 
 enum GroupRoleNumber : uint8 {

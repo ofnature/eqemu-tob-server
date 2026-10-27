@@ -3269,8 +3269,10 @@ namespace RoF2
 				buf.WriteUInt32(m.group_number);
 				buf.WriteString(m.name);
 				buf.WriteString(m.note);
-				buf.WriteUInt8(m.level);
+				// The client stores the first byte as class and the second as level (the one it sums for
+				// "Raid Level Avg"): RoF2 sub_47ED80.
 				buf.WriteUInt8(m._class);
+				buf.WriteUInt8(m.level);
 				buf.WriteUInt8(m.is_raid_leader);
 				buf.WriteUInt8(m.is_group_leader);
 				buf.WriteUInt8(m.is_assist);
@@ -3278,6 +3280,9 @@ namespace RoF2
 				buf.WriteUInt8(m.is_master_looter);
 			}
 
+			// RoF2 sub_47ED80 reads one more dword here (CRaid +0x3198, meaning unknown) before the
+			// group-leader count; without it the MOTD, the leader name and the locked byte are read 4 bytes off.
+			buf.WriteUInt32(0);
 			// Plausible from the wire shape (count + N strings, right after the
 			// member array) but unconfirmed -- see group_leader_names' comment.
 			buf.WriteUInt32(12); // always all 12 slots

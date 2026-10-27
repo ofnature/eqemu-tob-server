@@ -39,7 +39,7 @@ TODO bot rewrite:
 */
 
 // This constructor is used during the bot create command
-Bot::Bot(NPCType *npcTypeData, Client* botOwner) : Mixed<NPC, HasGroup, HasRaid>(npcTypeData, nullptr, glm::vec4(), Ground, false), rest_timer(1), m_ping_timer(1) {
+Bot::Bot(NPCType *npcTypeData, Client* botOwner) : Mixed<NPC, ::HasGroup, ::HasRaid>(npcTypeData, nullptr, glm::vec4(), Ground, false), rest_timer(1), m_ping_timer(1) {
 	GiveNPCTypeData(npcTypeData);
 
 	if (botOwner) {
@@ -144,7 +144,7 @@ Bot::Bot(
 	uint32 lastZoneId,
 	NPCType *npcTypeData
 )
-	: Mixed<NPC, HasGroup, HasRaid>(npcTypeData, nullptr, glm::vec4(), Ground, false), rest_timer(1), m_ping_timer(1)
+	: Mixed<NPC, ::HasGroup, ::HasRaid>(npcTypeData, nullptr, glm::vec4(), Ground, false), rest_timer(1), m_ping_timer(1)
 {
 	GiveNPCTypeData(npcTypeData);
 
@@ -6903,7 +6903,7 @@ bool Bot::IsAtRange(Mob *target) {
 	return result;
 }
 
-void Bot::OnRemoveFromGroup(Group* prev_group)
+void Bot::OnRemoveFromGroup()
 {
 	SetFollowID(0);
 	SetGroupHealer(false);
@@ -8383,7 +8383,7 @@ std::vector<Mob*> Bot::GetApplySpellList(ApplySpellType apply_type, bool allow_p
 
 	if (apply_type == ApplySpellType::Raid && IsRaided()) {
 		GetRaid()->ForEachLocalMember([&](const auto& m) {
-			if (m.kind != RaidMemberBot)
+			if (m.kind != RaidMemberKind::RaidMemberBot)
 				add_to_l(m.member);
 		});
 	} else if (apply_type == ApplySpellType::Group && IsGrouped()) {

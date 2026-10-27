@@ -2060,8 +2060,8 @@ protected:
 		}
 	}
 
-	// See Mob::SetZoneWithRaid's comment.
-	void SetZoneWithRaid(Raid* raid) override
+	// See Mob::SetRaidZoned's comment.
+	void SetRaidZoned(Raid* raid) override
 	{
 		if (raid != nullptr) {
 			RaidMembership::SetRaid(raid);
@@ -2116,8 +2116,8 @@ protected:
 		}
 	}
 
-	// See Mob::SetZoneWithGroup's comment.
-	void SetZoneWithGroup(Group* group) override
+	// See Mob::SetGroupZoned's comment.
+	void SetGroupZoned(Group* group) override
 	{
 		if (group != nullptr) {
 			GroupMembership::SetGroup(group);

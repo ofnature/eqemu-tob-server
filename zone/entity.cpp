@@ -2214,7 +2214,7 @@ Raid* EntityList::GetRaidByBotName(const char* name)
 	for (const auto& r : raid_list) {
 		bool found = false;
 		r->ForEachMember([&](const auto& m) -> bool {
-			found = (m.kind == RaidMemberBot && m.name == name);
+			found = (m.kind == RaidMemberKind::RaidMemberBot && m.name == name);
 			return !found;
 		});
 		if (found) {
@@ -2230,7 +2230,7 @@ Raid* EntityList::GetRaidByBot(const Bot* bot) const
 	for (const auto &r : raid_list) {
 		bool found = false;
 		r->ForEachLocalMember([&](const auto& member) -> bool {
-			found = (member.kind == RaidMemberBot && member.member->CastToBot() == bot);
+			found = (member.kind == RaidMemberKind::RaidMemberBot && member.member->CastToBot() == bot);
 			return !found;
 		});
 		if (found) {

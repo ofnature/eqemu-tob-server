@@ -2978,12 +2978,12 @@ namespace TOB
 			// Unconfirmed second dword -- ambiguous in the decompile (possibly
 			// unrelated to the plain wire-value fields around it).
 			buf.WriteUInt32(0);
-			// Two more length-prefixed strings read here on the wire, purpose
-			// unconfirmed (not MOTD -- MOTD/lock state are sent to every
-			// client version via separate calls in SendBulkRaidInfoTo()
-			// regardless, so this doesn't create a functional gap either way).
-			buf.WriteLengthString("");
-			buf.WriteLengthString("");
+			// CRaid::HandleRaidMessage case 6 (sub_14017D120) copies the first
+			// string into the raid MOTD (capped at 0x400) and passes the second
+			// to CRaid::SetRaidLeader (sub_14017FDD0), which is the only thing
+			// that marks the leader -- the client compares it to its own name.
+			buf.WriteLengthString(emu->motd);
+			buf.WriteLengthString(emu->leader_name);
 
 			// RaidData (MainAssists/MainAssistNames/MainMarkers/MasterLooter)
 			// -- confirmed directly via RaidData::UnSerialize and eqlib's
@@ -3059,8 +3059,9 @@ namespace TOB
 			outapp->WriteString(emu->player_name);
 			outapp->WriteUInt32(emu->unknown1);
 			outapp->WriteString(emu->leader_name);
-			outapp->WriteUInt32(emu->parameter);
+			// The client's generic reader (sub_140181090) keeps the parameter in the last dword (+148).
 			outapp->WriteUInt32(0);
+			outapp->WriteUInt32(emu->parameter);
 
 			dest->FastQueuePacket(&outapp);
 			break;

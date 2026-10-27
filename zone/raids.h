@@ -84,7 +84,7 @@ public:
 	// leader is Client*, not Mob*: no /bot command lets a bot owner make
 	// their bot issue a raid/group request as itself -- every raid action
 	// always originates from a real Client -- so a bot becoming raid leader
-	// is never legitimate. World rejects RaidLeadershipMakeLeader when the
+	// is never legitimate. World rejects RaidActionType::RaidLeadershipMakeLeader when the
 	// target is a bot (see world/raid_state.cpp), so this field should never
 	// need to hold anything but a Client*; keep it that way rather than
 	// widening to Mob* and pushing the IsClient() check onto every caller.
@@ -140,7 +140,7 @@ public:
 	// calls the private RequestAction()/SendRaidAction() templates -- callers
 	// never touch a wire struct directly, building one outside Raid would
 	// leak the wire protocol's shape into caller code.
-	// No RequestRemoveGroupLeader -- RaidLeadershipRemoveGroupLeader is
+	// No RequestRemoveGroupLeader -- RaidActionType::RaidLeadershipRemoveGroupLeader is
 	// retired/a confirmed no-op on live (see its comment in
 	// world/raid_state.cpp); RaidCommandRemoveGroupLeader's client_packet.cpp
 	// handler sends nothing at all rather than round-tripping a request the
@@ -156,6 +156,7 @@ public:
 	// new_leader_raid_aa is resolved internally from GetLeader() (matches
 	// RequestRaidAAs()'s pattern) -- callers never need to snapshot it themselves.
 	void	RequestMakeLeader(const Client* requestor, const std::string& target_name) const;
+	void	RequestRemoveGroupLeader(const Client* requestor, const std::string& target_name) const;
 	void	RequestSetMotd(const Client* requestor, const std::string& new_motd) const;
 	void	RequestSetNote(const Client* requestor, const std::string& target_name, const std::string& note) const;
 	void	RequestSetGroupOnInvite(const Client* requestor, bool enabled) const;
@@ -164,7 +165,7 @@ public:
 	// RaidRoleUndelegate* is never sent by any zone code, so no separate
 	// Request*/Undelegate method exists for it. Mirrors
 	// Group::RequestRoleChange's convention -- action is the resolved
-	// zone->world wire action (RaidRoleDelegateAssist/DelegateMark/
+	// zone->world wire action (RaidActionType::RaidRoleDelegateAssist/DelegateMark/
 	// DelegateMasterLooter), not the client's own DelegateAbility_Struct
 	// value; the caller (client_packet.cpp) maps one to the other, same as
 	// it already does for Group's DelegateAbility_Struct handling.
@@ -287,7 +288,7 @@ public:
 	// Leadership
 	// Mirrors Group::RequestGroupAAs() exactly: snapshots the leader's live
 	// AA ranks and reports the fact to world via ServerOP_RaidAction
-	// (RaidLeadershipUpdateAA), which relays the narrow AAChanged push back
+	// (RaidActionType::RaidLeadershipUpdateAA), which relays the narrow AAChanged push back
 	// out to every zone (including this one) via ApplyAAChangedFromWorld.
 	void	RequestRaidAAs() const;
 	void	SendLeadershipAAUpdate() const;
@@ -438,9 +439,11 @@ private:
 	void	SendRaidDisbandAll() const;
 	void	SendBulkRaid(Client *to) const;
 	void    SendRaidNotes() const;
+	void    SendRaidNote(const RaidMember& m) const;
 	void    SendAssistTarget(Client* c) const;
 	void	SendGroupLeaderChange(uint32 group_number, const char *old_leader_name, const char *new_leader_name) const;
 	void	SendRaidLock() const;
+	void	SendRaidLooterChange(uint32 action, const std::string& target, uint32 parameter, Client* to = nullptr) const;
 	void	SendRaidUnlock() const;
 	static void SendRaidLockTo(Client *c);
 	static void SendRaidUnlockTo(Client *c);

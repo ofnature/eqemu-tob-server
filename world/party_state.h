@@ -24,6 +24,7 @@ Copyright (C) 2001-2026 EQEmu Development Team
 #include "world/zonelist.h"
 #include "world/zoneserver.h"
 
+#include <cctype>
 #include <unordered_set>
 
 class ServerPacket;
@@ -189,8 +190,11 @@ public:
 
 	void HandleStateRequest(std::string_view character_name, ZoneServer* requester);
 	void HandleLeadershipAction(const ServerGroupActionHeader_Struct& header, std::string_view target_name, GroupActionType action);
+	// Raid RemLeader: the next member takes over. False when target isn't the leader or nobody can take over.
+	bool PassLeadership(std::string_view current_leader);
 
 private:
+	void NotifyRaidLeaderChanged(std::string_view old_leader) const;
 	void PushMemberJoined(const WorldGroupMember& new_member) const;
 	void PushMemberLeft(std::string_view departed_name, std::string_view new_leader_name, ZoneServer* departing_zs) const;
 	void PushGroupDisbanded() const;
@@ -235,6 +239,8 @@ struct WorldRaidMember : RaidMemberBase<WorldPartyMember>
 			}
 		};
 	}
+
+	uint32 join_order = 0; // set by WorldRaid::PlaceMember; leadership passes to the earliest joined
 };
 
 class WorldRaid : public WorldParty<RaidBase<WorldRaidMember>, ServerOP_RaidUpdate>
@@ -243,10 +249,14 @@ protected:
 	friend class PartyStateManager; // TODO: get rid of this
 	friend class RaidBuilder;
 	bool group_on_invite = false; // never sent to client; pure server-side placement policy
+	uint32 last_join_order = 0;
 
 	// Slot-fill only -- no push, no index update. Used by AddMember (which
 	// adds both) and by RaidBuilder (which defers both until Push()).
 	WorldRaidMember* PlaceMember(WorldRaidMember member);
+
+	// Earliest-joined player other than leaving_name, online ones first (live's order).
+	[[nodiscard]] WorldRaidMember* FindLeaderSuccessor(std::string_view leaving_name, bool online_only);
 
 public:
 	[[nodiscard]] uint8 GroupCount(uint32 group_number) const;
@@ -262,6 +272,7 @@ public:
 	// WorldGroup calls PartyStateManager::Instance() for its own index
 	// bookkeeping. Once group and raid share one manager this is a same-
 	// object call, not a cross-singleton hop.
+	void PushFull() const;
 	void PushFullTo(ZoneServer* target) const;
 	void PushMemberJoined(const WorldRaidMember& m) const;
 	// departing_zs: the departed character's own zone -- by the time this
@@ -270,6 +281,7 @@ public:
 	void PushMemberLeft(std::string_view character_name, ZoneServer* departing_zs) const;
 	void PushMemberFieldsChanged(const WorldRaidMember& m) const;
 	void PushGroupMoved(std::string_view character_name, uint32 new_group_number) const;
+	void PushGroupLeaderChanged(uint32 group_number, std::string_view old_leader, std::string_view new_leader) const;
 	void PushLeaderChanged() const;
 	void PushStateChanged() const;
 	void PushAAChanged() const;
@@ -330,8 +342,7 @@ private:
 
 // Same idea as GroupBuilder -- stages a brand-new raid (members, leader,
 // adopted subgroups) with no network traffic until Push(), which fires
-// one PushLeaderChanged + PushStateChanged instead of a push per member/
-// per subgroup attach.
+// one PushFull instead of a push per member/per subgroup attach.
 class RaidBuilder
 {
 public:
@@ -411,6 +422,9 @@ public:
 	// raid-linked group never goes through any raid request handler, so
 	// these are the only way raid learns about it.
 	void HandleSubgroupMemberDeparted(uint32 rid, std::string_view character_name);
+	void HandleSubgroupLeaderChanged(uint32 rid, std::string_view old_leader, std::string_view new_leader);
+	void HandleRemoveGroupLeader(WorldRaid& raid, std::string_view requestor_name, uint32 requestor_character_id,
+		std::string_view target_name);
 	void HandleSubgroupMemberJoined(uint32 rid, const WorldGroupMember& new_member);
 
 	// ---- Cross-party helpers used by WorldRaid's own methods (group_number
@@ -430,11 +444,31 @@ private:
 	uint32 AllocateRaidId();
 	WorldRaid& InstallRaid(uint32 rid, WorldRaid raid);
 
+	// Character names are case-insensitive ("/raidinvite valor" means Valor), so the indexes are too.
+	struct NameHash
+	{
+		using is_transparent = void;
+		std::size_t operator()(std::string_view sv) const noexcept
+		{
+			std::size_t h = 14695981039346656037ull;
+			for (unsigned char c : sv)
+				h = (h ^ static_cast<std::size_t>(std::tolower(c))) * 1099511628211ull;
+			return h;
+		}
+	};
+	struct NameEqual
+	{
+		using is_transparent = void;
+		bool operator()(std::string_view a, std::string_view b) const noexcept { return Strings::EqualFold(a, b); }
+	};
+	template <typename Val>
+	using NameMap = std::unordered_map<std::string, Val, NameHash, NameEqual>;
+
 	std::unordered_map<uint32, WorldGroup> m_groups;
-	TransparentStringMap<uint32> m_character_group_id; // recovery/routing index
+	NameMap<uint32> m_character_group_id; // recovery/routing index
 
 	std::unordered_map<uint32, WorldRaid> m_raids;
-	TransparentStringMap<uint32> m_character_raid_id; // recovery/routing index
+	NameMap<uint32> m_character_raid_id; // recovery/routing index
 	std::unordered_map<uint32, std::string> m_pending_invite_inviter_name;
 
 	// ---- Group-side internals

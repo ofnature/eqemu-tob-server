@@ -52,25 +52,13 @@ void PartyStateManager::HandleCharacterOffline(std::string_view character_name)
 
 	WorldRaid* raid = FindRaidByCharacter(character_name);
 	if (raid != nullptr) {
-		WorldRaidMember* m = raid->FindMember(character_name);
-		if (m != nullptr) {
-			auto next_online = std::ranges::find_if(raid->members, [&character_name](const WorldRaidMember& nm) {
-				return nm.InUse() && nm.kind != RaidMemberKind::RaidMemberBot
-					&& !Strings::EqualFold(nm.name, character_name) && IsCharacterOnline(nm.name);
-			});
-
-			if (next_online != raid->members.end()) {
-				if (m->roles & RaidBitmaskLeader) {
-					m->roles &= ~RaidBitmaskLeader;
-					next_online->roles |= RaidBitmaskLeader;
-					raid->leader_name = next_online->name;
-					raid->PushLeaderChanged();
-				}
-
-				raid->PushMemberFieldsChanged(*m);
-			} else {
+		// Live removes anyone who camps (RemoveMember passes leadership by join
+		// order); a raid left with one member disbands.
+		if (raid->FindMember(character_name) != nullptr) {
+			if (raid->FindLeaderSuccessor(character_name, true) == nullptr || raid->Count() <= 2)
 				raid->Disband();
-			}
+			else
+				raid->RemoveMember(character_name);
 		}
 	}
 }
@@ -544,7 +532,7 @@ ResolvedInviteTarget ResolveInviteTarget(const ServerRaidActionInvite_Struct& in
 		target.class_ = cle->class_();
 		target.level  = cle->level();
 	} else {
-		auto rows = BotDataRepository::GetWhere(database, fmt::format("`name` = '{}'", Strings::Escape(std::string_view(in.target_name))));
+		auto rows = BotDataRepository::GetWhere(database, fmt::format("`name` = '{}'", Strings::Escape(std::string(in.target_name))));
 		if (!rows.empty()) {
 			target.found              = true;
 			target.kind               = RaidMemberKind::RaidMemberBot;
@@ -679,9 +667,36 @@ void PartyStateManager::HandleSubgroupMemberDeparted(uint32 rid, std::string_vie
 				if (gid != 0 && !GroupExists(gid))
 					gid = 0;
 
-			raid.PushMemberFieldsChanged(*m);
+			// Member details don't carry the group number to clients; this moves the row on every raid window.
+			raid.PushGroupMoved(m->name, raid.FindMemberGroupNumber(m->name));
 		}
 	}
+}
+
+void PartyStateManager::HandleSubgroupLeaderChanged(uint32 rid, std::string_view old_leader, std::string_view new_leader)
+{
+	auto it = m_raids.find(rid);
+	if (it != m_raids.end()) {
+		const uint32 group_number = it->second.FindMemberGroupNumber(new_leader);
+		if (group_number < MAX_RAID_GROUPS)
+			it->second.PushGroupLeaderChanged(group_number, old_leader, new_leader);
+	}
+}
+
+// Raid window RemLeader (the client only offers it to the raid leader of a locked raid). Live behaviour not captured
+// yet; for now the group's next member takes over, the same as when a group leader leaves.
+void PartyStateManager::HandleRemoveGroupLeader(WorldRaid& raid, std::string_view requestor_name,
+	uint32 requestor_character_id, std::string_view target_name)
+{
+	if (!Strings::EqualFold(requestor_name, raid.leader_name)) {
+		SendPartyActionFailure(requestor_character_id, "Only the raid leader can remove a group leader.");
+		return;
+	}
+
+	const uint32 group_number = raid.FindMemberGroupNumber(target_name);
+	WorldGroup* group = group_number < MAX_RAID_GROUPS ? GetGroupById(raid.subgroup_group_ids[group_number]) : nullptr;
+	if (group == nullptr || !group->PassLeadership(target_name))
+		SendPartyActionFailure(requestor_character_id, "That player is not the leader of a group that someone else can lead.");
 }
 
 void PartyStateManager::HandleSubgroupMemberJoined(uint32 rid, const WorldGroupMember &new_member)
@@ -691,20 +706,6 @@ void PartyStateManager::HandleSubgroupMemberJoined(uint32 rid, const WorldGroupM
 		WorldRaid &raid = it->second;
 		if (raid.FindMember(new_member.name) == nullptr)
 			raid.AddMember(new_member);
-	}
-}
-
-void PartyStateManager::AddGroupToRaid(uint32 requestor_id, std::string_view inviter_name, std::string_view invitee_name)
-{
-	if (IsRaidMember(invitee_name)) {
-		WorldRaid* raid = FindRaidByCharacter(inviter_name);
-		if (raid == nullptr) {
-			// no raid yet, need to create it
-			NewRaid()
-			.AddMember(inviter_name, class_, level, RaidMemberKind::RaidMemberPlayer, 0, zone_id, instance_id);
-		}
-	} else {
-		SendPartyActionFailure(requestor_id, fmt::format("{} is already in a raid.", invitee_name));
 	}
 }
 
@@ -763,7 +764,9 @@ void PartyStateManager::AddPartyToRaid(
 			builder.AdoptGroup(GetGroupIdOf(inviter_name));
 			builder.SetLeader(inviter_name);
 		} else {
-			builder.AddMember(inviter_name, inviter_class, inviter_level, RaidMemberKind::RaidMemberPlayer, 0, 0, 0);
+			const auto *inviter_cle = ClientList::Instance()->FindCharacter(inviter_name);
+			builder.AddMember(inviter_name, inviter_class, inviter_level, RaidMemberKind::RaidMemberPlayer, 0,
+				inviter_cle != nullptr ? inviter_cle->zone() : 0, inviter_cle != nullptr ? inviter_cle->instance() : 0);
 			builder.SetLeader(inviter_name);
 		}
 
@@ -810,6 +813,8 @@ void PartyStateManager::HandleActionInvite(const ServerRaidActionInvite_Struct &
 {
 	std::string inviter_name = in.header.requestor_name;
 	std::string invitee_name = in.target_name;
+	if (const auto* typed = ClientList::Instance()->FindCharacter(invitee_name))
+		invitee_name = typed->name();     // "/raidinvite valor" -> "Valor", so every check below sees the real name
 
 	// /raidinvite is leader-only -- a regular /invite issued by a raid
 	// member (grouped or ungrouped) is a *group* action instead, routed
@@ -1052,11 +1057,12 @@ void PartyStateManager::HandleRaidAction(const ServerPacket *pack)
 							raid.UpdateLeadershipAA(in.header.requestor_character_id);
 						}
 						break;
-					// RaidLeadershipRemoveGroupLeader: retired, confirmed a
-					// no-op on live too -- deliberately left out of this
-					// switch (falls to default). The enum value itself
-					// stays in common/servertalk.h; it's meaningful wire
-					// history even though nothing handles it.
+					case RaidActionType::RaidLeadershipRemoveGroupLeader:
+						if (pack->size == sizeof(ServerRaidActionTarget_Struct)) {
+							auto &in = *reinterpret_cast<ServerRaidActionTarget_Struct*>(pack->pBuffer);
+							HandleRemoveGroupLeader(raid, in.header.requestor_name, in.header.requestor_character_id, in.target_name);
+						}
+						break;
 					case RaidActionType::RaidLeadershipLock:
 						if (pack->size == sizeof(ServerRaidActionBasic_Struct)) {
 							auto &in = *reinterpret_cast<ServerRaidActionBasic_Struct*>(pack->pBuffer);
@@ -1287,6 +1293,34 @@ void WorldGroup::PushLeaderChanged() const
 	PushDelta(msg, GroupUpdateType::LeaderChanged);
 }
 
+void WorldGroup::NotifyRaidLeaderChanged(std::string_view old_leader) const
+{
+	// A raid subgroup's "Group Leader" shows on raid windows, which only learn about a change from the raid.
+	if (raid_link.IsLinked())
+		PartyStateManager::Instance().HandleSubgroupLeaderChanged(raid_link.raid_id, old_leader, leader_name);
+}
+
+bool WorldGroup::PassLeadership(std::string_view current_leader)
+{
+	if (!Strings::EqualFold(leader_name, current_leader))
+		return false;
+
+	const std::string next_leader(FindNextLeader(current_leader));
+	if (next_leader.empty())
+		return false;
+
+	const std::string old_leader = leader_name;
+	leader_name = next_leader;
+	SetRoleHolder(GroupBitmaskLeader, leader_name);
+	PushLeaderChanged();
+	NotifyRaidLeaderChanged(old_leader);
+
+	SetRoleHolder(GroupBitmaskMasterLooter, EffectiveMasterLooter());
+	if (master_looter_name.empty())
+		PushRoleChanged(GroupRoleMasterLooter, leader_name);
+	return true;
+}
+
 void WorldGroup::PushRoleChanged(uint8 role_id, std::string_view target_name) const
 {
 	ServerGroupRoleChanged_Struct msg{};
@@ -1411,13 +1445,16 @@ uint32 GroupBuilder::Push()
 	return gid;
 }
 
-void WorldGroup::RemoveMember(std::string_view character_name)
+void WorldGroup::RemoveMember(std::string_view requested_name)
 {
-	const auto found_it = std::ranges::find(members, character_name, &WorldGroupMember::name);
-	if (found_it != members.end()) {
+	WorldGroupMember* found = FindMember(requested_name);   // names are case-insensitive
+	if (found != nullptr) {
 		if (Count() <= 2) {
 			Disband();
 		} else {
+			const std::string character_name = found->name;  // stored spelling, used for every index below
+			const uint32 departing_zone_id = found->zone_id;
+			const uint32 departing_instance_id = found->instance_id;
 			bool departing_was_leader = Strings::EqualFold(leader_name, character_name);
 			bool all_remaining_are_bots = std::ranges::none_of(members, [](const WorldGroupMember& m) {
 				return m.InUse() && m.kind != GroupMemberKind::GroupMemberBot;
@@ -1431,6 +1468,8 @@ void WorldGroup::RemoveMember(std::string_view character_name)
 					mentor_percent = 0;
 					PushMentorChanged();
 				}
+
+				*found = WorldGroupMember{};   // free the slot first so the departing member can't be promoted
 
 				std::string new_leader_name;
 				if (departing_was_leader) {
@@ -1447,8 +1486,10 @@ void WorldGroup::RemoveMember(std::string_view character_name)
 					SetRoleHolder(GroupBitmaskLeader, leader_name);
 				}
 
-				ZoneServer* departing_zs = ZSList::Instance()->FindByZoneIDAndInstanceID(found_it->zone_id, found_it->instance_id);
+				ZoneServer* departing_zs = ZSList::Instance()->FindByZoneIDAndInstanceID(departing_zone_id, departing_instance_id);
 				PushMemberLeft(character_name, new_leader_name, departing_zs);
+				if (!new_leader_name.empty())
+					NotifyRaidLeaderChanged(character_name);
 
 				if (!new_leader_name.empty() && master_looter_name.empty()) {
 					SetRoleHolder(GroupBitmaskMasterLooter, EffectiveMasterLooter());
@@ -1516,6 +1557,7 @@ void WorldGroup::SetMemberOffline(std::string_view character_name)
 			leader_name = next_leader;
 			SetRoleHolder(GroupBitmaskLeader, leader_name);
 			PushLeaderChanged();
+			NotifyRaidLeaderChanged(character_name);
 			PushOfflineChanged(character_name, true);
 		}
 	}
@@ -1595,6 +1637,7 @@ void WorldGroup::HandleLeadershipAction(const ServerGroupActionHeader_Struct& he
 				if (new_leader->kind == GroupMemberKind::GroupMemberBot && !bot_leader_ok) {
 					SendPartyActionFailure(header.requestor_character_id, "You cannot make a bot the leader of a standalone group.");
 				} else {
+					const std::string old_leader = leader_name;
 					leader_name = target_name;
 					SetRoleHolder(GroupBitmaskLeader, leader_name);
 
@@ -1604,6 +1647,7 @@ void WorldGroup::HandleLeadershipAction(const ServerGroupActionHeader_Struct& he
 							leadership_aa = FetchGroupLeadershipAAFromDB(new_leader_cle->CharID());
 
 					PushLeaderChanged();
+					NotifyRaidLeaderChanged(old_leader);
 
 					SetRoleHolder(GroupBitmaskMasterLooter, EffectiveMasterLooter());
 					if (master_looter_name.empty())
@@ -1819,6 +1863,13 @@ void WorldRaid::JoinRealSubgroup(uint32 group_number, std::string_view name, uin
 	}
 }
 
+void WorldRaid::PushFull() const
+{
+	auto pack = BuildFullPacket();
+	RelayToMembers(pack);
+	safe_delete(pack);
+}
+
 void WorldRaid::PushFullTo(ZoneServer* target) const
 {
 	if (target != nullptr) {
@@ -1851,6 +1902,15 @@ void WorldRaid::PushMemberFieldsChanged(const WorldRaidMember& m) const
 	ServerRaidMemberFieldsChanged_Struct msg{};
 	FillMemberFields(msg.member, m);
 	PushDelta(msg, RaidUpdateType::MemberFieldsChanged);
+}
+
+void WorldRaid::PushGroupLeaderChanged(uint32 group_number, std::string_view old_leader, std::string_view new_leader) const
+{
+	ServerRaidGroupLeaderChanged_Struct msg{};
+	msg.group_number = group_number;
+	Strings::Copy(msg.old_leader_name, old_leader);
+	Strings::Copy(msg.new_leader_name, new_leader);
+	PushDelta(msg, RaidUpdateType::GroupLeaderChanged);
 }
 
 void WorldRaid::PushGroupMoved(std::string_view character_name, uint32 new_group_number) const
@@ -1913,10 +1973,25 @@ void WorldRaid::PushDisbanded() const
 WorldRaidMember* WorldRaid::PlaceMember(WorldRaidMember member)
 {
 	WorldRaidMember* slot = FindFreeSlot();
-	if (slot != nullptr)
+	if (slot != nullptr) {
 		*slot = std::move(member);
+		slot->join_order = ++last_join_order;
+	}
 
 	return slot;
+}
+
+WorldRaidMember* WorldRaid::FindLeaderSuccessor(std::string_view leaving_name, bool online_only)
+{
+	WorldRaidMember* successor = nullptr;
+	for (auto &m : members) {
+		if (m.InUse() && m.kind != RaidMemberKind::RaidMemberBot && !Strings::EqualFold(m.name, leaving_name)
+			&& (!online_only || IsCharacterOnline(m.name))
+			&& (successor == nullptr || m.join_order < successor->join_order))
+			successor = &m;
+	}
+
+	return successor;
 }
 
 void WorldRaid::AddMember(WorldRaidMember member)
@@ -2014,11 +2089,11 @@ void WorldRaid::RemoveMember(std::string_view character_name)
 			RecomputeLooterNames();
 
 		if (was_raid_leader) {
-			auto promoted = std::ranges::find_if(members, [](const WorldRaidMember& nm) {
-				return nm.InUse() && nm.kind != RaidMemberKind::RaidMemberBot;
-			});
+			WorldRaidMember* promoted = FindLeaderSuccessor(character_name, true);
+			if (promoted == nullptr)
+				promoted = FindLeaderSuccessor(character_name, false);
 
-			if (promoted != members.end()) {
+			if (promoted != nullptr) {
 				promoted->roles |= RaidBitmaskLeader;
 				leader_name = promoted->name;
 				PushLeaderChanged();
@@ -2114,8 +2189,8 @@ uint32 RaidBuilder::Commit()
 	// founding leader, same as live's make-leader/found-raid behavior.
 	installed.RecomputeLooterNames();
 
-	installed.PushLeaderChanged();
-	installed.PushStateChanged();
+	// Zones only create a raid they don't know yet from a Full update.
+	installed.PushFull();
 
 	return rid;
 }
@@ -2257,6 +2332,7 @@ void WorldRaid::AddLooter(std::string_view requestor_name, uint32 requestor_char
 				m->roles |= RaidBitmaskLooter;
 				RecomputeLooterNames();
 				PushMemberFieldsChanged(*m);
+				PushStateChanged(); // carries looter_names, which zones echo to clients
 			}
 		}
 	}
@@ -2272,6 +2348,7 @@ void WorldRaid::RemoveLooter(std::string_view requestor_name, uint32 requestor_c
 			m->roles &= ~RaidBitmaskLooter;
 			RecomputeLooterNames();
 			PushMemberFieldsChanged(*m);
+			PushStateChanged(); // carries looter_names, which zones echo to clients
 		}
 	}
 }
