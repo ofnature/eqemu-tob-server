@@ -7289,6 +7289,24 @@ CREATE TABLE `dragonhoard_items` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 )",
 	},
+	ManifestEntry{
+		.version = 9332,
+		.description = "2026_10_17_tradeskill_depot_items.sql",
+		.check = "SHOW TABLES LIKE 'tradeskill_depot_items'",
+		.condition = "empty",
+		.match = "",
+		.sql = R"(
+CREATE TABLE `tradeskill_depot_items` (
+  `id`         int unsigned NOT NULL AUTO_INCREMENT,
+  `account_id` int unsigned NOT NULL,
+  `item_id`    int unsigned NOT NULL,
+  `item_name`  varchar(64)  NOT NULL,
+  `quantity`   int unsigned NOT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `account_item` (`account_id`, `item_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+)",
+	},
 // -- template; copy/paste this when you need to create a new entry
 //	ManifestEntry{
 //		.version = 9228,

@@ -74,6 +74,7 @@ namespace EQ
 #include "common/timer.h"
 #include "common/zone_store.h"
 #include "zone/dragonshoard_cache.h"
+#include "zone/tradeskilldepot_cache.h"
 
 #include <cfloat>
 #include <set>
@@ -1900,6 +1901,7 @@ public:
 
 	std::string GetGuildPublicNote();
 	DragonHoard::HoardCache& GetHoardCache() { return m_hoard_cache; }
+	TradeskillDepot::DepotCache& GetDepotCache() { return m_depot_cache; }
 
 	PlayerEvent::PlayerEvent GetPlayerEvent();
 	void RecordKilledNPCEvent(NPC *n);
@@ -1968,6 +1970,7 @@ protected:
 	QGlobalCache *qGlobals;
 
 	DragonHoard::HoardCache m_hoard_cache;
+	TradeskillDepot::DepotCache m_depot_cache;
 
 	/** Adventure Variables **/
 	Timer *adventure_request_timer;

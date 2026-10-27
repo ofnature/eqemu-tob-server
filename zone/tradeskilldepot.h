@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../common/types.h"
+#include "common/types.h"
 
 class Client;
 class EQApplicationPacket;
@@ -8,7 +8,7 @@ class EQApplicationPacket;
 // Personal Tradeskill Depot (The Outer Brood). Sibling of Dragon's Hoard — unlocked by its
 // claims in OP_PlayerProfile, its own opcode (OP_TradeskillDepot = 0x2D36), feature ids
 // (2018125 / 2018260), item packet type (ItemPacketTradeskillDepot = 0x79) and DB
-// table (tradeskill_depot_items).
+// table (tradeskill_depot_items, one pile per item per account).
 //
 // Unlike Dragon's Hoard the depot holds STACKABLE tradeskill mats and its packets are
 // stream-serialized: every OP_TradeskillDepot packet (both directions) starts with a
@@ -29,38 +29,22 @@ class EQApplicationPacket;
 //   5 = deposit     (c->s payload [u8=1][u32 count][u64 inventory item serial x count])
 //   6 = withdraw    (c->s payload [u32 item_id][u32 qty]; s->c: removal map + op ack)
 //                   NOTE: rows are keyed by item_id (client item struct +56 = item->ID),
-//                   NOT by the slot serial; the removal map is keyed by item_id too.
+//                   NOT by the row serial; the removal map is keyed by item_id too.
 //   8 = enable      (s->c; sets player+0x2474, shows depot UI)
 //  12 = plain ack   (s->c; only decrements the client's pending-op counter)
 // The client increments a pending-op counter (dword_140EE2B2C) on every deposit/withdraw
-// send and freezes depot input until a 5/6/12 response decrements it — every request MUST
-// be answered.
+// send and freezes depot input until a 5/6/12 response decrements it — every well-formed
+// request must be answered. Malformed requests are dropped.
 
 namespace TradeskillDepot {
 
 	// True only when the feature rule is on AND the client is TOB or later.
 	bool IsEnabled(Client* client);
 
-
-	// action 8 (enable flag) + action 4 (max slot count), sent when the client asks for the depot state.
-	void SendUnlock(Client* client);
-
-	// Populate the depot window with the account's stored items.
-	void SendItemList(Client* client);
-
 	// OP_TradeskillDepot dispatcher — routes by leading action dword.
 	void HandlePacket(Client* client, const EQApplicationPacket* app);
 
-	// Client deposits inventory items (by item serial) into the depot.
-	void HandleDeposit(Client* client, const EQApplicationPacket* app);
-
-	// Client withdraws qty of a depot row (row serial = slot_id + 1) onto the cursor.
-	void HandleRetrieve(Client* client, const EQApplicationPacket* app);
-
-	// Max depot slots (retail is purchasable; placeholder until confirmed).
-	static constexpr int MAX_SLOTS = 500;
-
-	// Client-side per-slot pile cap (deposit merge path checks row qty < 99999).
-	static constexpr uint32 MAX_SLOT_QUANTITY = 99999;
+	// Client-side per-pile cap (deposit merge path checks row qty < 99999).
+	constexpr uint32 MAX_PILE_QUANTITY = 99999;
 
 } // namespace TradeskillDepot

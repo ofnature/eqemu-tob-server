@@ -2105,7 +2105,7 @@ namespace TOB
 		out.WriteUInt32(emu->platinum_shared);
 
 		const auto dragonhoard_slots = static_cast<uint32>(std::max(RuleI(Features, DragonsHoard), 0));
-		const bool tradeskill_depot  = RuleB(Features, TradeskillDepotEnabled);
+		const bool tradeskill_depot  = RuleI(Features, TradeskillDepot) > 0;
 
 		//u32 claim_count;
 		out.WriteUInt32((dragonhoard_slots ? 1 : 0) + (tradeskill_depot ? 2 : 0));

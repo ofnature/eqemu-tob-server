@@ -94,6 +94,7 @@ set(zone_sources
 	tasks.cpp
 	titles.cpp
 	tradeskilldepot.cpp
+	tradeskilldepot_cache.cpp
 	tradeskills.cpp
 	trading.cpp
 	trap.cpp
@@ -222,6 +223,7 @@ set(zone_headers
 	tasks.h
 	titles.h
 	tradeskilldepot.h
+	tradeskilldepot_cache.h
 	trap.h
 	water_map.h
 	water_map_v1.h

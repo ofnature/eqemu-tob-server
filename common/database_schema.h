@@ -172,6 +172,7 @@ namespace DatabaseSchema {
 			"timers",
 			"trader",
 			"trader_audit",
+			"tradeskill_depot_items",
 			"zone_flags"
 		};
 	}

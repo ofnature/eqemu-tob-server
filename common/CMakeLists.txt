@@ -332,6 +332,7 @@ set(repositories
 	repositories/base/base_timers_repository.h
 	repositories/base/base_titles_repository.h
 	repositories/base/base_trader_repository.h
+	repositories/base/base_tradeskill_depot_items_repository.h
 	repositories/base/base_tradeskill_recipe_entries_repository.h
 	repositories/base/base_tradeskill_recipe_repository.h
 	repositories/base/base_traps_repository.h
@@ -529,6 +530,7 @@ set(repositories
 	repositories/timers_repository.h
 	repositories/titles_repository.h
 	repositories/trader_repository.h
+	repositories/tradeskill_depot_items_repository.h
 	repositories/tradeskill_recipe_entries_repository.h
 	repositories/tradeskill_recipe_repository.h
 	repositories/traps_repository.h
